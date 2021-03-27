@@ -1,7 +1,11 @@
 # Conv-TasNet
-Tensorflow implementation of the Conv-TasNet
 
-# Reference
-Conv-TasNet: Surpassing Ideal Time-Frequency Magnitude Masking for Speech Separation ([Link][LINK_URL])
+**Tensorflow Implementation of the Conv-TasNet**
 
-[LINK_URL]: https://arxiv.org/abs/1809.07454
+# References
+
+1. Tensorflow implementation of the (LSTM) TasNet by paxbun ([Link][paxbun_github_link])
+2. Conv-TasNet: Surpassing Ideal Time-Frequency Magnitude Masking for Speech Separation ([Link][paper_link])
+
+[paxbun_github_link]: https://github.com/paxbun/TasNet
+[paper_link]: https://arxiv.org/abs/1809.07454
