@@ -14,7 +14,7 @@ class ConvTasNetParam:
     # X     | Number of convolutional blocks in each repeat
     # R     | Number of repeats
     # ===============================================================================
-    # T-hat | Total number of sample
+    # T_hat | Total number of sample
     # C     | Total number of source (i.e., class)
     # ===============================================================================
 
@@ -55,12 +55,12 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetEncoder, self).__init__()
         self.param = param
-        self.input_reshape = tf.keras.layers.Reshape((param.T, param.L, 1))
+        self.input_reshape = tf.keras.layers.Reshape((param.T_hat, param.L, 1))
         self.conv1d = tf.keras.layers.Conv2D(filters=self.param.N,
                                              kernel_size=(1, self.param.L),
                                              activation="relu",
                                              padding="valid")
-        self.output_reshape = tf.keras.layers.Reshape((param.T, param.N))
+        self.output_reshape = tf.keras.layers.Reshape((param.T_hat, param.N))
 
     def call(self, encoder_inputs):
         reshaped_inputs = self.input_reshape(encoder_inputs)
@@ -122,8 +122,7 @@ class ConvTasNet(tf.keras.Model):
     def make(param: ConvTasNetParam, optimizer: tf.keras.optimizers.Optimizer, loss: tf.keras.losses.Loss):
         model = ConvTasNet(param, )
         model.compile(optimizer=optimizer, loss=loss)
-        # TODO | unsure param.T(custom-added hyperparameter) is necessary
-        model.build(input_shape=(None, param.T, param.L))
+        model.build(input_shape=(None, param.T_hat, param.L))
         return model
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
