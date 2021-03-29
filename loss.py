@@ -12,8 +12,8 @@ class SISNR(tf.keras.losses.Loss):
         self.eps = eps
 
     def call(self, s, s_hat):
-        s_target = (tf.matmul(tf.transpose(s), s_hat) / (tf.norm(s)**2)) * s
-        e_noise = s_hat - s_target
+        s_target = (tf.reduce_sum(tf.multiply(s, s_hat)) / tf.reduce_sum(tf.multiply(s, s))) * s
+	e_noise = s_hat - s_target
         return 20 * tf.math.log(tf.norm(s_target) / (tf.norm(e_noise) + self.eps) + self.eps)
 
 
