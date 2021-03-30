@@ -3,9 +3,9 @@ from tcn import TCN
 
 
 class ConvTasNetParam:
-    # ===============================================================================
+    # ==================================================================================
     # Hyperparameters Description
-    # ===============================================================================
+    # ==================================================================================
     # N     | Number of filters in autoencoder
     # L     | Length of the filters (in sample)
     # B     | Number of channels in bottleneck and the residual paths' 1x1-conv blocks
@@ -14,10 +14,10 @@ class ConvTasNetParam:
     # P     | Kernal size in convolutional blocks
     # X     | Number of convolutional blocks in each repeat
     # R     | Number of repeats
-    # ===============================================================================
+    # ==================================================================================
     # T_hat | Total number of sample
     # C     | Total number of source (i.e., class)
-    # ===============================================================================
+    # ==================================================================================
 
     # Reference
     # Luo Y., Mesgarani N. (2019). Conv-TasNet: Surpassing Ideal Time-Frequency Magnitude Masking for Speech Separation,
@@ -119,9 +119,20 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetDecoder, self).__init__(**kwargs)
         self.param = param
+        self.input_reshape = tf.keras.layers.Reshape(
+            (self.param.T_hat, self.param.C, self.param.N, 1))
+        # TODO | must fix the line below. kernel size is not guaranteed
+        self.transConv1d = tf.keras.layers.Conv3DTranspose(filters=self.param.L,
+                                                           kernel_size=(1, 1, self.param.N))
+        self.output_reshape = tf.keras.layers.Reshape(
+            (self.param.T_hat, self.param.C, self.param.L, 1))
 
     def call(self, decoder_inputs):
-        pass
+        reshaped_inputs = self.input_reshape(decoder_inputs)
+        transCond1d_outputs = self.transConv1d(reshaped_inputs)
+        reshaped_outputs = self.output_reshape(transCond1d_outputs)
+        # TODO | must concatenate the output source segments
+        return reshaped_outputs
 
     def get_config(self):
         return self.param.get_config()
@@ -165,7 +176,10 @@ class ConvTasNet(tf.keras.Model):
         # Separation (TCN)
         separator_outputs = self.separator(encoder_outputs)
         # Decoding (1-D Convolution)
-        decoder_inputs = tf.keras.layers.Multiply()(encoder_outputs, separator_outputs)
+        # TODO | must fix the definition of decoder_inputs.
+        # TODO | shape of encoder_outputs and separator_outputs are not fit to each other
+        decoder_inputs = tf.keras.layers.Multiply()(
+            encoder_outputs, separator_outputs)  # Multiply(*): elementwise multiplication
         decoder_outputs = self.decoder(decoder_inputs)
         return decoder_outputs
 
