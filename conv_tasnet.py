@@ -1,11 +1,13 @@
 import tensorflow as tf
-from tcn import TCN
 
 
 class ConvTasNetParam:
-    # ==================================================================================
+    # =====================================================================================
     # Hyperparameters Description
-    # ==================================================================================
+    # =====================================================================================
+    # T_hat | Total number of sample
+    # C     | Total number of source (i.e., class)
+    # =====================================================================================
     # N     | Number of filters in autoencoder
     # L     | Length of the filters (in sample)
     # B     | Number of channels in bottleneck and the residual paths' 1x1-conv blocks
@@ -14,10 +16,11 @@ class ConvTasNetParam:
     # P     | Kernal size in convolutional blocks
     # X     | Number of convolutional blocks in each repeat
     # R     | Number of repeats
-    # ==================================================================================
-    # T_hat | Total number of sample
-    # C     | Total number of source (i.e., class)
-    # ==================================================================================
+    # =====================================================================================
+    # is_casual | flag for the causality of the model
+    # eps       | small constant for numerical stability
+    # overlap   | overlapping factor
+    # =====================================================================================
 
     # Reference
     # Luo Y., Mesgarani N. (2019). Conv-TasNet: Surpassing Ideal Time-Frequency Magnitude Masking for Speech Separation,
@@ -25,23 +28,26 @@ class ConvTasNetParam:
 
     """Hyperparameters of the Conv-TasNet"""
 
-    __slots__ = ('T_hat', 'C', 'N', 'L', 'B', 'Sc', 'H', 'P', 'X', 'R')
+    __slots__ = ('T_hat', 'C', 'N', 'L', 'B', 'Sc',
+                 'H', 'P', 'X', 'R', 'is_causal', 'eps')
 
-    def __init__(self, T_hat: int, C: int, N: int, L: int, B: int, Sc: int, H: int, P: int, X: int, R: int):
+    def __init__(self, T_hat: int, C: int, N: int, L: int, B: int, Sc: int, H: int, P: int, X: int, R: int, is_casual: bool = True, eps: float = 1e-8):
         self.T_hat, self.C = T_hat, C
         self.N, self.L = N, L
         self.B, self.Sc = B, Sc
         self.H, self.P = H, P
         self.X, self.R = X, R
+        self.is_causal = is_casual
+        self.eps = eps
 
     def get_config(self):
-        return {
-            'T_hat': self.T_hat, 'C': self.C,
-            'N': self.N, 'L': self.L,
-            'B': self.B, 'Sc': self.Sc,
-            'H': self.H, 'P': self.P,
-            'X': self.X, 'R': self.R
-        }
+        return {'T_hat': self.T_hat, 'C': self.C,
+                'N': self.N, 'L': self.L,
+                'B': self.B, 'Sc': self.Sc,
+                'H': self.H, 'P': self.P,
+                'X': self.X, 'R': self.R,
+                'is_causal': self.is_causal,
+                'eps': self.eps}
 # ConvTasNetParam end
 
 
@@ -54,26 +60,21 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
 
     # @param activation: (optional) nonlinear function for the result of 1-D convolution.
     # @param do_gated_encoding: gating mechanism handler (Note: orginal model does not have gating mechanism)
-    def __init__(self, param: ConvTasNetParam, activation: str = "relu", do_gated_encoding: bool = False, **kwargs):
+    def __init__(self, param: ConvTasNetParam, activation: str = "relu", **kwargs):
         super(ConvTasNetEncoder, self).__init__(**kwargs)
         self.param = param
         self.activation = activation
-        self.do_gated_encoding = do_gated_encoding
         self.conv1d = tf.keras.layers.Conv1D(filters=self.param.N, kernel_size=1,
                                              activation=self.activation, padding='valid')
-        # if(self.do_gated_encoding):
-        #     self.gate_conv1d = tf.keras.layers.Conv1D(filters=self.param.N, kernel_size=1,
-        #                                               activation='sigmoid', padding='valid')
-        #     self.multiply = tf.keras.layers.Multiply()
 
     def call(self, encoder_inputs):
         # main encoding process
-        # shape: (T_hat, L) => (T_hat, N)
+        # shape: (M, T_hat) => (M, N, )
         encoder_outputs = self.conv1d(encoder_inputs)
         # gating mechanism
-        # if(self.do_gated_encoding):
-        #     gate_outputs = self.gate_conv1d(encoder_inputs)
-        #     encoder_outputs = self.multiply(encoder_outputs * gate_outputs)
+        if(self.do_gated_encoding):
+            gate_outputs = self.gate_conv1d(encoder_inputs)
+            encoder_outputs = self.multiply(encoder_outputs * gate_outputs)
         return encoder_outputs  # shape: (T_hat, N)
 
     def get_config(self):
@@ -98,9 +99,6 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         self.layer_normalization = tf.keras.layers.LayerNormalization()
         self.input_conv1x1 = tf.keras.layers.Conv1D(
             filters=self.param.B, kernel_size=1)  # shape: (T_hat, N) => (T_hat, B)
-        self.TCN = TCN(self.param, self.is_causal)  # Dilated-TCN
-        self.prelu = tf.keras.layers.PReLU()
-        # TODO | Add output_conv1x1
 
     def call(self, separator_inputs):
         separator_inputs = self.layer_normalization(separator_inputs)
@@ -148,36 +146,37 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
 class ConvTasNet(tf.keras.Model):
     # References
     # https://github.com/naplab/Conv-TasNet
+    # https://github.com/kaituoxu/Conv-TasNet
     # https://github.com/paxbun/TasNet
 
     """Conv-TasNet Implementation"""
 
-    __slots__ = ('param', 'is_causal', 'encoder_activation', 'do_gated_encoding',
+    __slots__ = ('param', 'encoder_activation', 'do_gated_encoding',
                  'encoder', 'separator', 'decoder')
 
     @staticmethod
     def make(param: ConvTasNetParam, optimizer: tf.keras.optimizers.Optimizer, loss: tf.keras.losses.Loss):
-        model = ConvTasNet(param, )
+        model = ConvTasNet(param)
         model.compile(optimizer=optimizer, loss=loss)
-        model.build(input_shape=(None, param.T_hat, param.L))
+        model.build(input_shape=(None, param.T_hat))  # None: batch_size
         return model
 
     # @param encoder_activation: nonlinear function (optional) for the convolutional encoding.
     # @param do_gated_encoding: gating mechanism handler for the convolutional encoding (orginal model does not use!)
-    def __init__(self, param: ConvTasNetParam, is_causal: bool = True, do_gated_encoding: bool = False, encoder_activation: str = 'relu', **kwargs):
+    def __init__(self, param: ConvTasNetParam, do_gated_encoding: bool = False, encoder_activation: str = 'relu', **kwargs):
         super(ConvTasNet, self).__init__(**kwargs)
         self.param = param
-        self.is_causal = is_causal
         self.do_gated_encoding = do_gated_encoding
         self.encoder_activation = encoder_activation
         self.encoder = ConvTasNetEncoder(
             self.param, activation=self.encoder_activation, is_gated_encoding=self.do_gated_encoding)
-        self.separator = ConvTasNetSeparator(self.param, self.is_causal)
+        self.separator = ConvTasNetSeparator(self.param, self.param.is_causal)
         self.decoder = ConvTasNetDecoder(self.param)
 
-    def call(self, inputs):
+    def call(self, mixtures):
         # Encoding (1-D Convolution)
-        # shape of encoder_output: T_hat x N
+        # inputs: batch_size x 1 x T_hat
+        # encoder_outputs: T_hat x N x L
         encoder_outputs = self.encoder(inputs)
         # Separation (TCN)
         separator_outputs = self.separator(encoder_outputs)
