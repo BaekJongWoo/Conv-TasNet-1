@@ -29,12 +29,10 @@ class ConvTasNetParam:
 
     def __init__(self, T_hat: int, C: int, N: int, L: int, B: int, Sc: int, H: int, P: int, X: int, R: int):
         self.T_hat, self.C = T_hat, C
-        # Filter
         self.N, self.L = N, L
-        # Convolutional block
-        self.B, self.Sc = B, Sc  # 1x1 conv block
-        self.H, self.P = H, P  # convolutional block
-        self.X, self.R = X, R  # convolutional block repeat
+        self.B, self.Sc = B, Sc
+        self.H, self.P = H, P
+        self.X, self.R = X, R
 
     def get_config(self):
         return {
@@ -51,32 +49,32 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
 
     """Convolution Encoder"""
 
-    __slots__ = ('param', 'activation', 'do_gated_encoding'
-                 'input_reshape', 'conv1d', 'output_reshape')
+    __slots__ = ('param', 'activation', 'do_gated_encoding',
+                 'conv1d', 'multiply', 'gate_conv1d')
 
-    # [param] activation: nonlinear function (optional) for the result of 1-D convolution.
-    # [param] do_gated_encoding: gating mechanism handler (orginal model does not use!)
+    # @param activation: (optional) nonlinear function for the result of 1-D convolution.
+    # @param do_gated_encoding: gating mechanism handler (Note: orginal model does not have gating mechanism)
     def __init__(self, param: ConvTasNetParam, activation: str = "relu", do_gated_encoding: bool = False, **kwargs):
         super(ConvTasNetEncoder, self).__init__(**kwargs)
         self.param = param
         self.activation = activation
         self.do_gated_encoding = do_gated_encoding
-        self.input_reshape = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.L, 1))
-        self.conv1d = tf.keras.layers.Conv2D(filters=self.param.N,
-                                             kernel_size=(1, self.param.L),
-                                             activation=self.activation,
-                                             padding="valid")
-        # TODO | implement gating mechanism
-        self.output_reshape = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.N))
+        self.conv1d = tf.keras.layers.Conv1D(filters=self.param.N, kernel_size=1,
+                                             activation=self.activation, padding='valid')
+        # if(self.do_gated_encoding):
+        #     self.gate_conv1d = tf.keras.layers.Conv1D(filters=self.param.N, kernel_size=1,
+        #                                               activation='sigmoid', padding='valid')
+        #     self.multiply = tf.keras.layers.Multiply()
 
     def call(self, encoder_inputs):
-        encoder_inputs = self.input_reshape(
-            encoder_inputs)  # reshaping for 1D convolution
-        encoder_outputs = self.conv1d(encoder_inputs)  # main encoding process
-        encoder_outputs = self.output_reshape(encoder_outputs)
-        return encoder_outputs  # shape: T_hat x N
+        # main encoding process
+        # shape: (T_hat, L) => (T_hat, N)
+        encoder_outputs = self.conv1d(encoder_inputs)
+        # gating mechanism
+        # if(self.do_gated_encoding):
+        #     gate_outputs = self.gate_conv1d(encoder_inputs)
+        #     encoder_outputs = self.multiply(encoder_outputs * gate_outputs)
+        return encoder_outputs  # shape: (T_hat, N)
 
     def get_config(self):
         return {**self.param.get_config(),
@@ -90,28 +88,26 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
     """Separator using Dilated Temporal Convolutional Network (Dilated-TCN)"""
 
     __slots__ = ('param', 'is_causal', 'layer_normalization',
-                 'input_conv1x1', 'tcn', 'prelu', 'output_conv1x1')
+                 'input_conv1x1', 'TCN', 'prelu', 'output_conv1x1')
 
     def __init__(self, param: ConvTasNetParam, is_causal: bool = True, **kwargs):
         super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
         self.is_causal = is_causal
+        # TODO | Change layer_normalization to depend causality of the Separator
         self.layer_normalization = tf.keras.layers.LayerNormalization()
-        self.input_reshape = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.N, 1))
-        self.input_conv1x1 = tf.keras.layers.Conv2D(
-            self.param.B, kernel_size=(1, 1))
-        self.tcn = TCN(self.param)
+        self.input_conv1x1 = tf.keras.layers.Conv1D(
+            filters=self.param.B, kernel_size=1)  # shape: (T_hat, N) => (T_hat, B)
+        self.TCN = TCN(self.param, self.is_causal)  # Dilated-TCN
         self.prelu = tf.keras.layers.PReLU()
-        self.output_conv1x1 = None
+        # TODO | Add output_conv1x1
 
     def call(self, separator_inputs):
         separator_inputs = self.layer_normalization(separator_inputs)
-        separator_inputs = self.input_reshape(separator_inputs)
         separator_inputs = self.input_conv1x1(separator_inputs)
-        separator_outputs = self.tcn(separator_inputs)
+        separator_outputs = self.TCN(separator_inputs)
         separator_outputs = self.prelu(separator_outputs)
-        separator_outputs = self.output_conv1x1(separator_outputs)
+        # TODO | Add output_conv1x1
         return separator_outputs
 
     def get_config(self):
@@ -124,7 +120,7 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
 
     """Convolutional Decoder"""
 
-    __slots__ = ('param')
+    __slots__ = ('param', 'input_reshape', 'transConv1d', 'output_reshape')
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetDecoder, self).__init__(**kwargs)
@@ -166,8 +162,8 @@ class ConvTasNet(tf.keras.Model):
         model.build(input_shape=(None, param.T_hat, param.L))
         return model
 
-    # [param] encoder_activation: nonlinear function (optional) for the convolutional encoding.
-    # [param] do_gated_encoding: gating mechanism handler for the convolutional encoding (orginal model does not use!)
+    # @param encoder_activation: nonlinear function (optional) for the convolutional encoding.
+    # @param do_gated_encoding: gating mechanism handler for the convolutional encoding (orginal model does not use!)
     def __init__(self, param: ConvTasNetParam, is_causal: bool = True, do_gated_encoding: bool = False, encoder_activation: str = 'relu', **kwargs):
         super(ConvTasNet, self).__init__(**kwargs)
         self.param = param
