@@ -72,10 +72,11 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
             target_shape=(self.param.T_hat, self.param.N))
 
     def call(self, encoder_inputs):
-        reshaped_inputs = self.input_reshape(encoder_inputs)
-        conv1d_outputs = self.conv1d(reshaped_inputs)  # main encoding process
-        reshaped_outputs = self.output_reshape(conv1d_outputs)
-        return reshaped_outputs
+        encoder_inputs = self.input_reshape(
+            encoder_inputs)  # reshaping for 1D convolution
+        encoder_outputs = self.conv1d(encoder_inputs)  # main encoding process
+        encoder_outputs = self.output_reshape(encoder_outputs)
+        return encoder_outputs  # shape: T_hat x N
 
     def get_config(self):
         return {**self.param.get_config(),
@@ -95,14 +96,23 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
         self.is_causal = is_causal
-        self.layer_normalization = None
-        self.input_conv1x1 = None
+        self.layer_normalization = tf.keras.layers.LayerNormalization()
+        self.input_reshape = tf.keras.layers.Reshape(
+            target_shape=(self.param.T_hat, self.param.N, 1))
+        self.input_conv1x1 = tf.keras.layers.Conv2D(
+            self.param.B, kernel_size=(1, 1))
         self.tcn = TCN(self.param)
         self.prelu = tf.keras.layers.PReLU()
         self.output_conv1x1 = None
 
     def call(self, separator_inputs):
-        pass
+        separator_inputs = self.layer_normalization(separator_inputs)
+        separator_inputs = self.input_reshape(separator_inputs)
+        separator_inputs = self.input_conv1x1(separator_inputs)
+        separator_outputs = self.tcn(separator_inputs)
+        separator_outputs = self.prelu(separator_outputs)
+        separator_outputs = self.output_conv1x1(separator_outputs)
+        return separator_outputs
 
     def get_config(self):
         return {**self.param.get_config(),

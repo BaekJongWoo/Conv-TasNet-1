@@ -8,7 +8,7 @@ class gLN(tf.keras.layers.Layer):
 
     __slots__ = ('eps')
 
-    def __init__(self, eps: float = 1e-10, **kwargs):
+    def __init__(self, eps: float = 1e-8, **kwargs):
         super(gLN, self).__init__(**kwargs)
         self.eps = eps  # small constant for numerical stability
 
@@ -23,7 +23,7 @@ class cLN(tf.keras.layers.Layer):
 
     __slots__ = ('eps')
 
-    def __init__(self, eps: float = 1e-10, **kwargs):
+    def __init__(self, eps: float = 1e-8, **kwargs):
         super(cLN, self).__init__(**kwargs)
         self.eps = eps  # small constant for numerical stability
 
