@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tcn import TCN
 
 
 class ConvTasNetParam:
@@ -53,20 +54,22 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
     __slots__ = ('param', 'activation', 'do_gated_encoding'
                  'input_reshape', 'conv1d', 'output_reshape')
 
-    # @param activation: nonlinear function (optional) for the result of 1-D convolution.
-    # @param do_gated_encoding: gating mechanism handler (orginal model does not use!)
+    # [param] activation: nonlinear function (optional) for the result of 1-D convolution.
+    # [param] do_gated_encoding: gating mechanism handler (orginal model does not use!)
     def __init__(self, param: ConvTasNetParam, activation: str = "relu", do_gated_encoding: bool = False, **kwargs):
-        super(ConvTasNetEncoder, self).__init__()
+        super(ConvTasNetEncoder, self).__init__(**kwargs)
         self.param = param
         self.activation = activation
         self.do_gated_encoding = do_gated_encoding
-        self.input_reshape = tf.keras.layers.Reshape((param.T_hat, param.L, 1))
+        self.input_reshape = tf.keras.layers.Reshape(
+            target_shape=(self.param.T_hat, self.param.L, 1))
         self.conv1d = tf.keras.layers.Conv2D(filters=self.param.N,
                                              kernel_size=(1, self.param.L),
                                              activation=self.activation,
                                              padding="valid")
         # TODO | implement gating mechanism
-        self.output_reshape = tf.keras.layers.Reshape((param.T_hat, param.N))
+        self.output_reshape = tf.keras.layers.Reshape(
+            target_shape=(self.param.T_hat, self.param.N))
 
     def call(self, encoder_inputs):
         reshaped_inputs = self.input_reshape(encoder_inputs)
@@ -85,19 +88,25 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
 
     """Separator using Dilated Temporal Convolutional Network (Dilated-TCN)"""
 
-    __slots__ = ('param', 'is_casual')
+    __slots__ = ('param', 'is_causal', 'layer_normalization',
+                 'input_conv1x1', 'tcn', 'prelu', 'output_conv1x1')
 
-    def __init__(self, param: ConvTasNetParam, is_casual: bool = True, **kwargs):
-        super(ConvTasNetSeparator, self).__init__()
+    def __init__(self, param: ConvTasNetParam, is_causal: bool = True, **kwargs):
+        super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
-        self.is_casual = is_casual
+        self.is_causal = is_causal
+        self.layer_normalization = None
+        self.input_conv1x1 = None
+        self.tcn = TCN(self.param)
+        self.prelu = tf.keras.layers.PReLU()
+        self.output_conv1x1 = None
 
     def call(self, separator_inputs):
         pass
 
     def get_config(self):
         return {**self.param.get_config(),
-                'Casuality': self.is_casual}
+                'Causality': self.is_causal}
 # ConvTasNetSeparator end
 
 
@@ -108,7 +117,7 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
     __slots__ = ('param')
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
-        super(ConvTasNetDecoder, self).__init__()
+        super(ConvTasNetDecoder, self).__init__(**kwargs)
         self.param = param
 
     def call(self, decoder_inputs):
@@ -126,7 +135,7 @@ class ConvTasNet(tf.keras.Model):
 
     """Conv-TasNet Implementation"""
 
-    __slots__ = ('param', 'is_casual', 'encoder_activation', 'do_gated_encoding',
+    __slots__ = ('param', 'is_causal', 'encoder_activation', 'do_gated_encoding',
                  'encoder', 'separator', 'decoder')
 
     @staticmethod
@@ -136,33 +145,33 @@ class ConvTasNet(tf.keras.Model):
         model.build(input_shape=(None, param.T_hat, param.L))
         return model
 
-    # @param encoder_activation: nonlinear function (optional) for the convolutional encoding.
-    # @param do_gated_encoding: gating mechanism handler for the convolutional encoding (orginal model does not use!)
-    def __init__(self, param: ConvTasNetParam, is_casual: bool = True, do_gated_encoding: bool = False, encoder_activation: str = 'relu', **kwargs):
-        super(ConvTasNet, self).__init__()
+    # [param] encoder_activation: nonlinear function (optional) for the convolutional encoding.
+    # [param] do_gated_encoding: gating mechanism handler for the convolutional encoding (orginal model does not use!)
+    def __init__(self, param: ConvTasNetParam, is_causal: bool = True, do_gated_encoding: bool = False, encoder_activation: str = 'relu', **kwargs):
+        super(ConvTasNet, self).__init__(**kwargs)
         self.param = param
-        self.is_casual = is_casual
+        self.is_causal = is_causal
         self.do_gated_encoding = do_gated_encoding
         self.encoder_activation = encoder_activation
         self.encoder = ConvTasNetEncoder(
             self.param, activation=self.encoder_activation, is_gated_encoding=self.do_gated_encoding)
-        self.separator = ConvTasNetSeparator(self.param, self.is_casual)
+        self.separator = ConvTasNetSeparator(self.param, self.is_causal)
         self.decoder = ConvTasNetDecoder(self.param)
 
     def call(self, inputs):
         # Encoding (1-D Convolution)
+        # shape of encoder_output: T_hat x N
         encoder_outputs = self.encoder(inputs)
         # Separation (TCN)
         separator_outputs = self.separator(encoder_outputs)
         # Decoding (1-D Convolution)
-        decoder_inputs = tf.keras.layers.Multiply()(
-            encoder_outputs, separator_outputs)  # Multiply(*): elementwise multiplication
+        decoder_inputs = tf.keras.layers.Multiply()(encoder_outputs, separator_outputs)
         decoder_outputs = self.decoder(decoder_inputs)
         return decoder_outputs
 
     def get_config(self):
         return {**self.param.get_config(),
-                'Casuality': self.is_casual,
+                'Causality': self.is_causal,
                 'Encoder activation': self.encoder_activation,
                 'Gated encoder': self.do_gated_encoding}
 # ConvTasnet end

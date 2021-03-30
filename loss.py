@@ -3,13 +3,13 @@ import tensorflow as tf
 
 class SISNR(tf.keras.losses.Loss):
 
-    """SI-SNR: Scale-Invariant Signal-to-Noise Ratio"""
+    """SI-SNR: Scale-Invariant Source-to-Noise Ratio"""
 
     __slots__ = 'eps'
 
     def __init__(self, eps: float = 1e-10, **kwargs):
         super(SISNR, self).__init__(**kwargs)
-        self.eps = eps
+        self.eps = eps  # small constant for numerical stability
 
     def call(self, s, s_hat):
         s_target = (tf.matmul(tf.transpose(s), s_hat) / (tf.norm(s)**2)) * s
@@ -19,9 +19,9 @@ class SISNR(tf.keras.losses.Loss):
 
 class SDR(tf.keras.losses.Loss):
 
-    """SDR: Signal-to-Distortion Ratio"""
+    """SDR: Source-to-Distortion Ratio"""
 
-    __slots__ = 'eps'
+    __slots__ = 'eps'  # small constant for numerical stability
 
     def __init__(self,  eps: float = 1e-10, **kwargs):
         super(SDR, self).__init__(**kwargs)
