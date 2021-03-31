@@ -97,8 +97,15 @@ class TCN(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(TCN, self).__init__(**kwargs)
         self.param = param
-        self.stack = []  # stack of the Conv1DBlock instances
+        _stack = []  # stack of the Conv1DBlock instances
         # TODO | stack Conv1DBlock into self.stack
+        for _ in range(self.param.R):
+            _temp = []  # array of convolutional blocks in each repeat
+            for x in range(self.param.X):
+                dilation = 2**x  # dilation= 1, 2, 4, ..., 2^(X-1)
+                _temp.append(Conv1DBlock(self.param, dilation=dilation))
+            _stack.append(*_temp)
+        self.stack = tf.keras.Sequential(*_stack)
 
     def call(self, tcn_inputs):
         """
@@ -107,6 +114,7 @@ class TCN(tf.keras.layers.Layer):
 
         Returns:
             tcn_outputs: [T_hat x B]
+
         """
         pass
 # TCN end

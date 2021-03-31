@@ -5,11 +5,11 @@ class SISNR(tf.keras.losses.Loss):
 
     """SI-SNR: Scale-Invariant Source-to-Noise Ratio"""
 
-    __slots__ = 'eps'
+    __slots__ = 'eps'  # small constant for numerical stability
 
     def __init__(self, eps: float = 1e-8, **kwargs):
         super(SISNR, self).__init__(**kwargs)
-        self.eps = eps  # small constant for numerical stability
+        self.eps = eps
 
     def call(self, s, s_hat):
         s_target = (tf.reduce_sum(tf.multiply(s, s_hat)) /
