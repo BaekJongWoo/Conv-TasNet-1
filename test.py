@@ -1,3 +1,3 @@
-import tensorflow as tf
-
-print(tf.__version__)
+a = None
+a += 1
+print(a)
