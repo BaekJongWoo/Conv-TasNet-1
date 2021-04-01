@@ -20,7 +20,6 @@ def decode_source(track):
     return rtn
 
 
-# TODO | must fix this function considering overlap
 def musdb_generator(param: ConvTasNetParam, num_songs: int, batch_size: int,
                     n: int, musdb_dir: str = "/home/kaparoo/musdb18"):
     db = list(musdb.DB(root=musdb_dir, subsets="train").tracks)

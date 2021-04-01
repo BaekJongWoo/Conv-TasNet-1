@@ -1,9 +1,11 @@
 """
 Tensorflow 2.0 Implementation of the Fully-Convolutional Time-domain Audio Separation Network (Conv-TasNet)
+
 Authors:
     kaparoo
+
 References:
-    [1] Y. Luo and N. Mesgarani, "Conv-TasNet: Surpassing Ideal Time?Frequency Magnitude Masking for Speech Separation,"
+    [1] Y. Luo and N. Mesgarani, "Conv-TasNet: Surpassing Ideal Time-Frequency Magnitude Masking for Speech Separation,"
         in IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 27, no. 8, pp. 1256-1266, Aug. 2019,
         doi: 10.1109/TASLP.2019.2915167.
     [2] https://github.com/naplab/Conv-TasNet
@@ -12,8 +14,8 @@ References:
 """
 
 import tensorflow as tf
-from convtasnetparam import ConvTasNetParam
-from tcn import TemporalConvNet
+from convtasnet_param import ConvTasNetParam
+from temporalconvnet import TemporalConvNet
 
 
 class ConvTasNetEncoder(tf.keras.layers.Layer):
@@ -21,8 +23,8 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
-        conv1d_U (keras.layers.Dense): 1-D convolution layer estimating weights of mixture segments
-        conv1d_G (keras.layers.Dense): 1-D convolution layer corresponding to the gating mechanism
+        conv1d_U (keras.layers.Conv1D): 1-D convolution layer estimating weights of mixture segments
+        conv1d_G (keras.layers.Conv1D): 1-D convolution layer corresponding to the gating mechanism
         multiply (keras.layers.Multiply): Layer for elementwise muliplication
     """
 
@@ -31,14 +33,12 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetEncoder, self).__init__(**kwargs)
         self.param = param
-        self.conv1d_U = tf.keras.layers.Dense(units=self.param.N,
-                                              input_dim=self.param.L,
-                                              use_bias=False,
-                                              activation="linear")
-        self.conv1d_G = tf.keras.layers.Dense(units=self.param.N,
-                                              input_dim=self.param.L,
-                                              use_bias=False,
-                                              activation="sigmoid")
+        self.conv1d_U = tf.keras.layers.Conv1D(filters=self.param.N,
+                                               activation="linear",
+                                               use_bias=False)
+        self.conv1d_G = tf.keras.layers.Conv1D(filters=self.param.N,
+                                               activation="sigmoid",
+                                               use_bias=False)
         self.multiply = tf.keras.layers.Multiply()
 
     def call(self, mixture_segments):
@@ -67,17 +67,16 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
 
 
 class ConvTasNetSeparator(tf.keras.layers.Layer):
-    """Separation Module using Dilated Temporal Convolution Networks (i.e., Dilated-TCN)
+    """Separation Module using Dilated Temporal Convolution Network (i.e., Dilated-TCN)
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
         layer_normalization (keras.layers.LayerNormalization): Normalization layer
-        input_conv1x1 (keras.layers.Dense): 1x1 convolution layer (bottleneck)
-        TCN (TemporalConvNet): Dilated-TCN
-        prelu (keras.layers.PReLU): Layer for parametric recified linear unit (i.e., PReLU) activation
-        output_conv1x1 (keras.layers.Dense): 1x1 convolution layer (reverse bottleneck)
+        input_conv1x1 (keras.layers.Conv1D): 1x1 convolution layer
+        TCN (TemporalConvNet): Dilated-TCN layer
+        prelu (keras.layers.PReLU): PReLU activation layer
+        output_conv1x1 (keras.layers.Conv1D): 1x1 convolution layer
         output_reshape (keras.layers.Reshape): (, T_hat, C*N) -> (, T_hat, C, N)
-        sigmoid (keras.activations.sigmoid): Sigmoid activation function
         softmax (keras.layers.Softmax): Softmax activation layer
     """
 
@@ -88,14 +87,12 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
         self.layer_normalization = tf.keras.layers.LayerNormalization()
-        self.input_conv1x1 = tf.keras.layers.Dense(units=self.param.B,
-                                                   input_dim=self.param.N,
-                                                   use_bias=False)
+        self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
+                                                    use_bias=False)
         self.TCN = TemporalConvNet(self.param)
         self.prelu = tf.keras.layers.PReLU()
-        self.output_conv1x1 = tf.keras.layers.Dense(units=self.param.C * self.param.N,
-                                                    input_dim=self.param.Sc,
-                                                    use_bias=False)
+        self.output_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.C * self.param.N,
+                                                     use_bias=False)
         self.output_reshape = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.C, self.param.N))
         self.softmax = tf.keras.layers.Softmax(axis=-2)
@@ -112,8 +109,8 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         Returns:
             estimated_masks: (, T_hat, C, N)
         """
-        # # (, T_hat, N) -> (, T_hat, N)
-        # mixture_weights = self.layer_normalization(mixture_weights)
+        # (, T_hat, N) -> (, T_hat, N)
+        mixture_weights = self.layer_normalization(mixture_weights)
         # (, T_hat, N) -> (, T_hat, B)
         tcn_inputs = self.input_conv1x1(mixture_weights)
         # (, T_hat, B) -> (, T_hat, Sc)
@@ -139,8 +136,8 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
     Attributes:
         param (ConvTasNetParam): Hyperparameters
         multiply (keras.layers.Multiply): Layer for elementwise multiplication
-        conv1d_V (keras.layers.Dense): 1-D transpose convolution layer estimating
-                                       sources of the original mixture segments
+        conv1d_V (keras.layers.Conv1D): 1-D transpose convolution layer estimating
+                                        sources of the original mixture segments
         permute (keras.layers.Permute): (, T_hat, C, L) -> (, C, T_hat, L)
     """
 
@@ -150,9 +147,8 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
         super(ConvTasNetDecoder, self).__init__(**kwargs)
         self.param = param
         self.multiply = tf.keras.layers.Multiply()
-        self.conv1d_V = tf.keras.layers.Dense(units=self.param.L,
-                                              input_dim=self.param.N,
-                                              use_bias=False)
+        self.conv1d_V = tf.keras.layers.Conv1D(filters=self.param.L,
+                                               use_bias=False)
         self.permute = tf.keras.layers.Permute((2, 1, 3))
 
     def call(self, mixture_weights, estimated_masks):

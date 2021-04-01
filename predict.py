@@ -5,12 +5,11 @@ import soundfile as sf
 import tensorflow as tf
 import youtube_dl
 from os import path, listdir
-from dataset import get_track_names
-from convtasnetparam import get_param
-from convtasnet import ConvTasNet
-from loss import SISNR, SDR
+from dataset.musdb_dataset import get_track_names
+from model.convtasnet_param import get_param
+from model.convtasnet_model import ConvTasNet
+from model.loss import SISNR, SDR
 
-MAX_EPOCH = 100
 LEARNING_RATE = 1e-3
 EPSILION = 1e-8
 
@@ -54,7 +53,6 @@ with youtube_dl.YoutubeDL(ydl_opts) as ydl:
 title = info.get("title", None)
 filename = title + ".wav"
 audio, sr = librosa.load(filename, sr=44100, mono=True)
-# TODO | must fix num_samples considering overlapping
 num_samples = audio.shape[0]
 num_portions = num_samples // (param.T_hat * param.L)
 num_samples = num_portions * (param.T_hat * param.L)

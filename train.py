@@ -1,10 +1,10 @@
 
 import tensorflow as tf
 from os import path, listdir
-from dataset import make_dataset
-from convtasnet import ConvTasNet
-from convtasnetparam import get_param
-from loss import SISNR, SDR
+from dataset.musdb_dataset import make_dataset
+from model.convtasnet_param import get_param
+from model.convtasnet_model import ConvTasNet
+from model.loss import SISNR, SDR
 
 MAX_EPOCH = 100
 LEARNING_RATE = 1e-3
