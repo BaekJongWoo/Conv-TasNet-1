@@ -2,55 +2,11 @@ import tensorflow as tf
 from config import ConvTasNetParam
 
 
-class GlobalLayerNorm(tf.keras.layers.Layer):
-    """Global Layer Normalization (i.e., gLN)
-
-    Attributes:
-        gamma (tf.Variable): Trainable parameter
-        beta (tf.Varaible): Trainable paramter
-        epsilon (float): Small constant for numerical stability
-    """
-
-    __slots__ = ("gamma", "beta", "epsilon")
-
-    def __init__(self, eps: float = 1e-8, **kwargs):
-        super(GlobalLayerNorm, self).__init__(**kwargs)
-        self.epsilon = eps
-        self.gamma = tf.Variable(trainable=True)
-        self.beta = tf.Variable(trainable=True)
-
-    def call(self, inputs):
-        pass
-# GlobalLayerNorm end
-
-
-class CumulativeLayerNorm(tf.keras.layers.Layer):
-    """Cumulative Layer Normalization (i.e., cLN)
-
-    Attributes:
-        gamma (tf.Variable): Trainable parameter
-        beta (tf.Varaible): Trainable paramter
-        epsilon (float): Small constant for numerical stability
-    """
-
-    __slots__ = ("gamma", "beta", "epsilon")
-
-    def __init__(self, eps: float = 1e-8, **kwargs):
-        super(CumulativeLayerNorm, self).__init__(**kwargs)
-        self.epsilon = eps
-        self.gamma = tf.Variable(trainable=True)
-        self.beta = tf.Variable(trainable=True)
-
-    def call(self, inputs):
-        pass
-# CumulativeLayerNorm end
-
-
 class Conv1DBlock(tf.keras.layers.Layer):
     """1-D Convolution Block using Depthwise Separable Convolution
 
     TODO:
-        Add causality depended layer normalization for pointwise_conv, and depthwsie_conv respectively
+        Replace LayerNormalization to 'causality depended' layer normalization for pointwise_conv, and depthwsie_conv respectively
 
     Attributes
         param (ConvTasNetParam): Hyperparamters
@@ -70,6 +26,8 @@ class Conv1DBlock(tf.keras.layers.Layer):
         self.reshape2 = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.H))
         self.prelu1 = tf.keras.layers.PReLU()
+        self.layer_normalization1 = tf.keras.layers.LayerNormalization(
+            epsilon=self.param.eps)
         self.reshape3 = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.H, 1))
         self.depthwise_conv = tf.keras.layers.DepthwiseConv2D(kernel_size=(self.param.P, self.param.P),
@@ -77,6 +35,8 @@ class Conv1DBlock(tf.keras.layers.Layer):
                                                               padding="same",
                                                               use_bias=False)
         self.prelu2 = tf.keras.layers.PReLU()
+        self.layer_normalization2 = tf.keras.layers.LayerNormalization(
+            epsilon=self.param.eps)
         self.residual_conv1x1 = tf.keras.layers.Conv2D(filters=self.param.B,
                                                        kernel_size=(
                                                            1, self.param.H),
@@ -107,6 +67,8 @@ class Conv1DBlock(tf.keras.layers.Layer):
         pointwise_outputs = self.reshape2(pointwise_outputs)
         # (, T_hat, H) -> (, T_hat, H)
         pointwise_outputs = self.prelu1(pointwise_outputs)
+        # (, T_hat, H) -> (, T_hat, H)
+        pointwise_outputs = self.layer_normalization1(pointwise_outputs)
         # (, T_hat, H) -> (, T_hat, H, 1)
         pointwise_outputs = self.reshape3(pointwise_outputs)
         # (, T_hat, H, 1) -> (, T_hat, H, 1)
@@ -115,6 +77,8 @@ class Conv1DBlock(tf.keras.layers.Layer):
         depthwise_outputs = self.reshape2(depthwise_outputs)
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_outputs = self.prelu2(depthwise_outputs)
+        # (, T_hat, H) -> (, T_hat, H)
+        depthwise_outputs = self.layer_normalization2(depthwise_outputs)
         # (, T_hat, H) -> (, T_hat, H, 1)
         depthwise_outputs = self.reshape3(depthwise_outputs)
         # (, T_hat, H, 1) -> (, T_hat, B, 1)
@@ -172,3 +136,81 @@ class TemporalConvNet(tf.keras.layers.Layer):
     def get_config(self):
         return self.param.get_config()
 # TemporalConvNet end
+
+
+# class GlobalLayerNorm(tf.keras.layers.Layer):
+#     """Global Layer Normalization (i.e., gLN)
+
+#     Attributes:
+#         gamma (tf.Variable): Trainable parameter of shape=(, 1, num_features)
+#         beta (tf.Varaible): Trainable paramter of shape=(, 1, num_features)
+#         epsilon (float): Small constant for numerical stability
+#     """
+
+#     __slots__ = ("gamma", "beta", "epsilon")
+
+#     def __init__(self, num_features: int, eps: float = 1e-8, **kwargs):
+#         super(GlobalLayerNorm, self).__init__(**kwargs)
+#         self.epsilon = eps
+#         gamma_init = tf.random_normal_initializer()
+#         self.gamma = tf.Variable(
+#             initial_value=gamma_init(shape=(1, num_features)), trainable=True)
+#         beta_init = tf.zeros_initializer()
+#         self.beta = tf.Variable(
+#             initial_value=beta_init(shape=(1, num_features)), trainable=True)
+
+#     def call(self, inputs):
+#         """
+#         Args:
+#             inputs: (, T_hat, num_features)
+
+#         Locals:
+#             mean: (, T_hat, num_features)
+#             var: (, T_hat, num_features)
+
+#         Returns:
+#             outputs: (, T_hat, num_features)
+#         """
+
+#         # mean, var = tf.nn.moments()
+#         pass
+# # GlobalLayerNorm end
+
+
+# class CumulativeLayerNorm(tf.keras.layers.Layer):
+#     """Cumulative Layer Normalization (i.e., cLN)
+
+#     Attributes:
+#         gamma (tf.Variable): Trainable parameter of shape=(, 1, num_features)
+#         beta (tf.Varaible): Trainable paramter of shape=(, 1, num_features)
+#         epsilon (float): Small constant for numerical stability
+#     """
+
+#     __slots__ = ("gamma", "beta", "epsilon")
+
+#     def __init__(self, num_features: int, eps: float = 1e-8, **kwargs):
+#         super(CumulativeLayerNorm, self).__init__(**kwargs)
+#         self.epsilon = eps
+#         gamma_init = tf.random_normal_initializer()
+#         self.gamma = tf.Variable(
+#             initial_value=gamma_init(shape=(1, num_features)), trainable=True)
+#         beta_init = tf.zeros_initializer()
+#         self.beta = tf.Variable(
+#             initial_value=beta_init(shape=(1, num_features)), trainable=True)
+
+#     def call(self, inputs):
+#         """
+#         Args:
+#             inputs: (, k, num_features) where k <= T_hat
+
+#         Locals:
+#             mean: (, k, num_features)
+#             var: (, k, num_features)
+
+#         Returns:
+#             outputs: (, k, num_features)
+#         """
+
+#         # mean, var = tf.nn.moments()
+#         pass
+# # CumulativeLayerNorm end
