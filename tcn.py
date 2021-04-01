@@ -2,12 +2,59 @@ import tensorflow as tf
 from config import ConvTasNetParam
 
 
+class GlobalLayerNorm(tf.keras.layers.Layer):
+    """Global Layer Normalization (i.e., gLN)
+
+    Attributes:
+        gamma (tf.Variable): Trainable parameter
+        beta (tf.Varaible): Trainable paramter
+        epsilon (float): Small constant for numerical stability
+    """
+
+    __slots__ = ("gamma", "beta", "epsilon")
+
+    def __init__(self, eps: float = 1e-8, **kwargs):
+        super(GlobalLayerNorm, self).__init__(**kwargs)
+        self.epsilon = eps
+        self.gamma = tf.Variable(trainable=True)
+        self.beta = tf.Variable(trainable=True)
+
+    def call(self, inputs):
+        pass
+# GlobalLayerNorm end
+
+
+class CumulativeLayerNorm(tf.keras.layers.Layer):
+    """Cumulative Layer Normalization (i.e., cLN)
+
+    Attributes:
+        gamma (tf.Variable): Trainable parameter
+        beta (tf.Varaible): Trainable paramter
+        epsilon (float): Small constant for numerical stability
+    """
+
+    __slots__ = ("gamma", "beta", "epsilon")
+
+    def __init__(self, eps: float = 1e-8, **kwargs):
+        super(CumulativeLayerNorm, self).__init__(**kwargs)
+        self.epsilon = eps
+        self.gamma = tf.Variable(trainable=True)
+        self.beta = tf.Variable(trainable=True)
+
+    def call(self, inputs):
+        pass
+# CumulativeLayerNorm end
+
+
 class Conv1DBlock(tf.keras.layers.Layer):
     """1-D Convolution Block using Depthwise Separable Convolution
 
+    TODO:
+        Add causality depended layer normalization for pointwise_conv, and depthwsie_conv respectively
+
     Attributes
         param (ConvTasNetParam): Hyperparamters
-        dilation (int): dilation factor
+        dilation (int): Dilation factor
     """
 
     def __init__(self, param: ConvTasNetParam, dilation: int, **kwargs):
@@ -93,6 +140,7 @@ class TemporalConvNet(tf.keras.layers.Layer):
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
+        conv1dblock_stack (List[Conv1DBlock]): Dilated causal/noncausal depthwise separable network
     """
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
@@ -108,18 +156,17 @@ class TemporalConvNet(tf.keras.layers.Layer):
         Args:
             tcn_inputs: (, T_hat, B)
 
+        Locals:
+            skipconn_outputs: (, T_hat, Sc)
+
         Returns:
             tcn_outputs: (, T_hat, Sc)
         """
-        tcn_outputs = None
+        tcn_outputs = tf.zeros(shape=(self.param.T_hat, self.param.Sc))
         for block in self.conv1dblock_stack:
-            # (, T_hat, B) -> (, T_hat, B), (, T_hat, Sc)
             residual_outputs, skipconn_outputs = block(tcn_inputs)
-            # (, T_hat, B) -> (, T_hat, B)
             tcn_inputs = residual_outputs
-            # (, T_hat, Sc) [, (, T_hat, Sc)] -> (, T_hat, Sc)
-            tcn_outputs = tcn_outputs + skipconn_outputs \
-                if tcn_outputs != None else skipconn_outputs
+            tcn_outputs += skipconn_outputs
         return tcn_outputs
 
     def get_config(self):
