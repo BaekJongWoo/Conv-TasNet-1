@@ -5,15 +5,24 @@ import soundfile as sf
 import tensorflow as tf
 import youtube_dl
 from os import path, listdir
-from config import get_param, get_directory_name
+from config import get_param
 from dataset import get_track_names
-from model import TasNet, TasNetParam, SDR
+from config import ConvTasNetParam
+from convtasnet import ConvTasNet
+from loss import SISNR, SDR
 
-param = get_param()
-directory_name = get_directory_name(param)
-model = TasNet.make(param, tf.keras.optimizers.Adam(), SDR(param))
+MAX_EPOCH = 100
+LEARNING_RATE = 1e-3
+EPSILION = 1e-8
 
-directory_name = f"E:/tasnet/training_sdr_blstm_6_{param.N}_{param.L}_{param.H}_{param.K}_{param.C}_{param.g}_{param.b}"
+param = get_param(eps=EPSILION)
+
+adam = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
+model = ConvTasNet.make(param, adam, SDR(EPSILION))
+
+# directory_name = f"/home/kaparoo/Conv-Tasnet/convtasnet_train/training_sisnr_conv2d_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
+directory_name = f"/home/kaparoo/Conv-Tasnet/convtasnet_train/training_sisnr_conv2d_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
+
 
 if path.exists(directory_name):
     checkpoints = [name for name in listdir(
@@ -28,7 +37,7 @@ def youtube_dl_hook(d):
         print("Done downloading...")
 
 
-url = "gdZLi9oWNZg"
+url = "gdZLi9oWNZg"  # BTS dynamite
 ydl_opts = {
     "format": "bestaudio/best",
     "postprocessors": [{
@@ -46,12 +55,13 @@ with youtube_dl.YoutubeDL(ydl_opts) as ydl:
 title = info.get("title", None)
 filename = title + ".wav"
 audio, sr = librosa.load(filename, sr=44100, mono=True)
+# TODO | must fix num_samples considering overlapping
 num_samples = audio.shape[0]
-num_portions = num_samples // (param.K * param.L)
-num_samples = num_portions * (param.K * param.L)
+num_portions = num_samples // (param.T_hat * param.L)
+num_samples = num_portions * (param.T_hat * param.L)
 
 audio = audio[:num_samples]
-audio = np.reshape(audio, (num_portions, param.K, param.L))
+audio = np.reshape(audio, (num_portions, param.T_hat, param.L))
 
 print("predicting...")
 

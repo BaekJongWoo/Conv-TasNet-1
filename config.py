@@ -19,7 +19,7 @@ class ConvTasNetParam():
     __slots__ = ('T_hat', 'C', 'N', 'L', 'B', 'Sc',
                  'H', 'P', 'X', 'R', 'causality', 'eps')
 
-    def __init__(self, T_hat: int, C: int, N: int = 512, L: int = 16, B: int = 128, Sc: int = 128, H: int = 512,
+    def __init__(self, T_hat: int = 100, C: int = 3, N: int = 512, L: int = 16, B: int = 128, Sc: int = 128, H: int = 512,
                  P: int = 3, X: int = 8, R: int = 3, causality: bool = True, eps: float = 1e-8):
         self.T_hat, self.C = T_hat, C
         self.N, self.L = N, L
@@ -38,3 +38,7 @@ class ConvTasNetParam():
                 'causality': self.causality,
                 'eps': self.eps}
 # ConvTasNetParam end
+
+
+def get_param(T_hat: int = 100, C: int = 3, eps: float = 1e-8) -> ConvTasNetParam:
+    return ConvTasNetParam(T_hat=T_hat, C=C, eps=eps)

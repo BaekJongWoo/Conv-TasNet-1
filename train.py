@@ -1,7 +1,7 @@
 
 import tensorflow as tf
 from os import path, listdir
-from config import get_param, get_directory_name
+from config import get_param
 from dataset import make_dataset
 from convtasnet import ConvTasNet
 from loss import SISNR, SDR
@@ -11,10 +11,12 @@ LEARNING_RATE = 1e-3
 EPSILION = 1e-8
 
 param = get_param(eps=EPSILION)
-directory_name = get_directory_name(param)
 
 adam = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
 model = ConvTasNet.make(param, adam, SDR(EPSILION))
+
+# directory_name = f"/home/kaparoo/Conv-Tasnet/convtasnet_train/training_sisnr_conv2d_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
+directory_name = f"/home/kaparoo/Conv-Tasnet/convtasnet_train/training_sisnr_conv2d_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
 
 epoch = 0
 if path.exists(directory_name):
