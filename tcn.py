@@ -1,101 +1,86 @@
 import tensorflow as tf
-from config import ConvTasNetParam
+from convtasnetparam import ConvTasNetParam
 
 
 class Conv1DBlock(tf.keras.layers.Layer):
     """1-D Convolution Block using Depthwise Separable Convolution
 
     TODO:
-        Replace LayerNormalization to 'causality depended' layer normalization for pointwise_conv, and depthwsie_conv respectively
+        Add 'causality depended' layer normalization for bottleneck_conv, and depthwsie_conv respectively
 
     Attributes
         param (ConvTasNetParam): Hyperparamters
         dilation (int): Dilation factor
+        bottleneck_conv (keras.layers.Dense): 1x1 convolution layer (bottleneck)
+        prelu1 (keras.layers.PReLU): PReLU activation layer for the bottleneck_conv layer
+        depthwise_conv (keras.layers.Conv1D): 1-D depthwise convolution layer
+        prelu2 (keras.layers.PReLU): PReLU activation layer for the depthwise_conv layer
+        residual_conv (keras.layers.Dense): 1x1 convolution layer corresponding to the resodual path
+        skipconn_conv (keras.layers.Dense): 1x1 convolution layer corresponding to the skipconnection path
     """
 
     def __init__(self, param: ConvTasNetParam, dilation: int, **kwargs):
         super(Conv1DBlock, self).__init__(**kwargs)
         self.param = param
         self.dilation = dilation
-        self.reshape1 = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.B, 1))
-        self.pointwise_conv = tf.keras.layers.Conv2D(filters=self.param.H,
-                                                     kernel_size=(
-                                                         1, self.param.B),
+        self.bottleneck_conv = tf.keras.layers.Dense(units=self.param.H,
+                                                     input_dim=self.param.B,
                                                      use_bias=False)
-        self.reshape2 = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.H))
         self.prelu1 = tf.keras.layers.PReLU()
-        self.layer_normalization1 = tf.keras.layers.LayerNormalization(
-            epsilon=self.param.eps)
-        self.reshape3 = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.H, 1))
-        self.depthwise_conv = tf.keras.layers.DepthwiseConv2D(kernel_size=(self.param.P, self.param.P),
-                                                              dilation_rate=self.dilation,
-                                                              padding="same",
-                                                              use_bias=False)
+        self.layer_normalization1 = tf.keras.layers.LayerNormalization()
+
+        causal = "same"
+        kernel = self.param.P
+        if self.param.causality:
+            causal = "causal"
+        self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
+                                                     kernel_size=self.param.P,
+                                                     padding=causal,
+                                                     dilation_rate=self.dilation,
+                                                     groups=self.param.H,
+                                                     use_bias=False)
         self.prelu2 = tf.keras.layers.PReLU()
-        self.layer_normalization2 = tf.keras.layers.LayerNormalization(
-            epsilon=self.param.eps)
-        self.residual_conv1x1 = tf.keras.layers.Conv2D(filters=self.param.B,
-                                                       kernel_size=(
-                                                           1, self.param.H),
-                                                       use_bias=False)
-        self.reshape4 = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.B))
-        self.skipconn_conv1x1 = tf.keras.layers.Conv2D(filters=self.param.Sc,
-                                                       kernel_size=(
-                                                           1, self.param.H),
-                                                       use_bias=False)
-        self.reshape5 = tf.keras.layers.Reshape(
-            target_shape=(self.param.T_hat, self.param.Sc))
+        self.layer_normalization2 = tf.keras.layers.LayerNormalization()
+        self.residual_conv = tf.keras.layers.Dense(units=self.param.B,
+                                                   input_dim=self.param.H,
+                                                   use_bias=False)
+        self.skipconn_conv = tf.keras.layers.Dense(units=self.param.Sc,
+                                                   input_dim=self.param.H,
+                                                   use_bias=False)
 
     def call(self, block_inputs):
         """
         Args:
             block_inputs: (, T_hat, B)
 
+        Locals:
+            bottelneck_outputs: (, T_hat, H)
+            depthwise_inputs: (, T_hat, H, 1)
+            depthwise_outputs: (, T_hat, H)
+
         Returns:
             residual_outputs: (, T_hat, B)
             skipconn_outputs: (, T_hat, Sc)
         """
-        # (, T_hat, B) -> (, T_hat, B, 1)
-        pointwise_inputs = self.reshape1(block_inputs)
-        # (, T_hat, B, 1) -> (, T_hat, H, 1)
-        pointwise_outputs = self.pointwise_conv(pointwise_inputs)
-        # (, T_hat, H, 1) -> (, T_hat, H)
-        pointwise_outputs = self.reshape2(pointwise_outputs)
+        # (, T_hat, B) -> (, T_hat, H)
+        bottleneck_outputs = self.bottleneck_conv(block_inputs)
         # (, T_hat, H) -> (, T_hat, H)
-        pointwise_outputs = self.prelu1(pointwise_outputs)
-        # (, T_hat, H) -> (, T_hat, H)
-        pointwise_outputs = self.layer_normalization1(pointwise_outputs)
-        # (, T_hat, H) -> (, T_hat, H, 1)
-        pointwise_outputs = self.reshape3(pointwise_outputs)
+        depthwise_inputs = self.prelu1(bottleneck_outputs)
         # (, T_hat, H, 1) -> (, T_hat, H, 1)
-        depthwise_outputs = self.depthwise_conv(pointwise_outputs)
-        # (, T_hat, H, 1) -> (, T_hat, H)
-        depthwise_outputs = self.reshape2(depthwise_outputs)
+        depthwise_outputs = self.depthwise_conv(depthwise_inputs)
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_outputs = self.prelu2(depthwise_outputs)
-        # (, T_hat, H) -> (, T_hat, H)
-        depthwise_outputs = self.layer_normalization2(depthwise_outputs)
-        # (, T_hat, H) -> (, T_hat, H, 1)
-        depthwise_outputs = self.reshape3(depthwise_outputs)
-        # (, T_hat, H, 1) -> (, T_hat, B, 1)
-        residual_outputs = self.residual_conv1x1(depthwise_outputs)
-        # (, T_hat, B, 1) -> (, T_hat, B)
-        residual_outputs = self.reshape4(residual_outputs)
+        # depthwise_outputs = self.layer_normalization2(depthwise_outputs)
+        # (, T_hat, H) -> (, T_hat, B)
+        residual_outputs = self.residual_conv(depthwise_outputs)
         # (, T_hat, B), (, T_hat, B) -> (, T_hat, B)
         residual_outputs = residual_outputs + block_inputs
-        # (, T_hat, H, 1) -> (, T_hat, Sc, 1)
-        skipconn_outputs = self.skipconn_conv1x1(depthwise_outputs)
-        # (, T_hat, Sc, 1) -> (, T_hat, Sc)
-        skipconn_outputs = self.reshape5(skipconn_outputs)
+        # (, T_hat, H) -> (, T_hat, Sc)
+        skipconn_outputs = self.skipconn_conv(depthwise_outputs)
         return residual_outputs, skipconn_outputs
 
     def get_config(self):
-        return {**self.param.get_config(),
-                "Dilation": self.dilation}
+        return {**self.param.get_config(), "Dilation": self.dilation}
 # Conv1DBlock end
 
 
@@ -104,16 +89,18 @@ class TemporalConvNet(tf.keras.layers.Layer):
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
-        conv1dblock_stack (List[Conv1DBlock]): Dilated causal/noncausal depthwise separable network
+        conv1dblock_list (List[Conv1DBlock]): List of the 1-D convolutional blocks
     """
+
+    __slots__ = ("param", "conv1dblock_list")
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(TemporalConvNet, self).__init__(**kwargs)
         self.param = param
-        self.conv1dblock_stack = []
+        self.conv1dblock_list = []
         for _ in range(self.param.R):
             for x in range(self.param.X):
-                self.conv1dblock_stack.append(Conv1DBlock(self.param, 2**x))
+                self.conv1dblock_list.append(Conv1DBlock(self.param, 2**x))
 
     def call(self, tcn_inputs):
         """
@@ -121,13 +108,14 @@ class TemporalConvNet(tf.keras.layers.Layer):
             tcn_inputs: (, T_hat, B)
 
         Locals:
+            residual_outputs: (, T_hat, B)
             skipconn_outputs: (, T_hat, Sc)
 
         Returns:
             tcn_outputs: (, T_hat, Sc)
         """
         tcn_outputs = tf.zeros(shape=(self.param.T_hat, self.param.Sc))
-        for block in self.conv1dblock_stack:
+        for block in self.conv1dblock_list:
             residual_outputs, skipconn_outputs = block(tcn_inputs)
             tcn_inputs = residual_outputs
             tcn_outputs += skipconn_outputs

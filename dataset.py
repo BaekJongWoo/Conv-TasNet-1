@@ -3,9 +3,8 @@ import numpy as np
 import musdb
 import random
 from tqdm import tqdm
-from config import ConvTasNetParam
 from convtasnet import ConvTasNet
-from loss import SISNR, SDR
+from convtasnetparam import ConvTasNetParam
 
 
 def get_track_names():
@@ -22,8 +21,8 @@ def decode_source(track):
 
 
 # TODO | must fix this function considering overlap
-def musdb_generator(param: ConvTasNetParam, num_songs: int, batch_size: int, n: int,
-                    musdb_dir: str = "/home/kaparoo/musdb18", overlap: int = 2):
+def musdb_generator(param: ConvTasNetParam, num_songs: int, batch_size: int,
+                    n: int, musdb_dir: str = "/home/kaparoo/musdb18"):
     db = list(musdb.DB(root=musdb_dir, subsets="train").tracks)
     random.shuffle(db)
     db = db[:num_songs]
@@ -34,27 +33,48 @@ def musdb_generator(param: ConvTasNetParam, num_songs: int, batch_size: int, n: 
         mus.append(decode_source(track))
     print("Decoding dataset...done")
 
-    shape = (param.T_hat, param.L)
-    duration = param.T_hat * param.L
+    duration = (param.T_hat + 1) * param.L // 2  # 50% overlap
     for _ in range(n):
         X = []
         Y = []
+        prev_batch_start = []
         for _ in range(batch_size):
             track = random.choice(mus)
-            start = random.randint(0, track["length"] - duration)
-            end = start + duration
-            x_0 = np.reshape(track["audio"][0][start:end], shape)
-            x_1 = np.reshape(track["audio"][1][start:end], shape)
-            y_0 = [
-                np.reshape(track[target][0][start:end], shape)
-                for target in get_track_names()
-            ]
-            y_1 = [
-                np.reshape(track[target][1][start:end], shape)
-                for target in get_track_names()
-            ]
+
+            batch_start = random.randint(0, track["length"] - duration)
+            while batch_start in prev_batch_start:
+                batch_start = random.randint(0, track["length"] - duration)
+            prev_batch_start.append(batch_start)
+
+            x_0, x_1, y_0, y_1 = [], [], [], []
+
+            _start = batch_start
+            for _ in range(param.T_hat):
+                # [0], [1] for stereo
+                _end = _start + param.L
+                segment_0 = np.array(track["audio"][0][_start:_end])  # 1 x L
+                segment_1 = np.array(track["audio"][1][_start:_end])  # 1 x L
+                sources_0 = [track[target][0][_start:_end]
+                             for target in get_track_names()]  # C x 1 x L
+                sources_1 = [track[target][1][_start:_end]
+                             for target in get_track_names()]  # C x 1 x L
+                _start = _start + (param.L // 2)
+                x_0.append(segment_0)
+                x_1.append(segment_1)
+                y_0.append(sources_0)
+                y_1.append(sources_1)
+
+            x_0 = np.array(x_0)
+            x_1 = np.array(x_1)
+            y_0 = np.array(y_0)
+            y_1 = np.array(y_1)
+
+            y_0 = y_0.transpose((1, 0, 2))
+            y_1 = y_1.transpose((1, 0, 2))
+
             X.extend([x_0, x_1])
             Y.extend([y_0, y_1])
+
         yield np.array(X), np.array(Y)
 
 

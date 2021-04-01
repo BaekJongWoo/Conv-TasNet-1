@@ -5,9 +5,8 @@ import soundfile as sf
 import tensorflow as tf
 import youtube_dl
 from os import path, listdir
-from config import get_param
 from dataset import get_track_names
-from config import ConvTasNetParam
+from convtasnetparam import get_param
 from convtasnet import ConvTasNet
 from loss import SISNR, SDR
 
@@ -18,11 +17,11 @@ EPSILION = 1e-8
 param = get_param(eps=EPSILION)
 
 adam = tf.keras.optimizers.Adam(learning_rate=LEARNING_RATE)
-model = ConvTasNet.make(param, adam, SDR(EPSILION))
 
-# directory_name = f"/home/kaparoo/Conv-Tasnet/convtasnet_train/training_sisnr_conv2d_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
-directory_name = f"/home/kaparoo/Conv-Tasnet/convtasnet_train/training_sisnr_conv2d_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
-
+# model = ConvTasNet.make(param, adam, SISNR(eps=EPSILION))
+# directory_name = f"/home/kaparoo/Conv-TasNet/convtasnet_train/training_sisnr_overlap_{param.causality}_{param.gating}_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
+model = ConvTasNet.make(param, adam, SDR(eps=EPSILION))
+directory_name = f"/home/kaparoo/Conv-TasNet/convtasnet_train/training_sdr_overlap_{param.causality}_{param.gating}_{param.T_hat}_{param.C}_{param.N}_{param.L}_{param.B}_{param.Sc}_{param.H}_{param.P}_{param.X}_{param.R}"
 
 if path.exists(directory_name):
     checkpoints = [name for name in listdir(
@@ -37,7 +36,7 @@ def youtube_dl_hook(d):
         print("Done downloading...")
 
 
-url = "gdZLi9oWNZg"  # BTS dynamite
+url = "gdZLi9oWNZg"
 ydl_opts = {
     "format": "bestaudio/best",
     "postprocessors": [{
@@ -72,4 +71,5 @@ separated = np.reshape(separated, (param.C, num_samples))
 print("saving...")
 
 for idx, track in enumerate(get_track_names()):
-    sf.write(f"{title}_{track}.wav", separated[idx], sr)
+    sf.write(
+        f"/home/kaparoo/Conv-TasNet/convtasnet_predict/{title}_{track}.wav", separated[idx], sr)

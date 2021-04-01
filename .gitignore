@@ -10,3 +10,6 @@ temp/
 
 # Local History for Visual Studio Code
 .history/
+
+convtasnet_predict/
+convtasnet_train/
