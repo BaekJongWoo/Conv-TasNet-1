@@ -109,7 +109,8 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         self.reshape1 = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.N, 1))
         self.input_conv1x1 = tf.keras.layers.Conv2D(filters=self.param.B,
-                                                    kerenel=(1, self.param.N),
+                                                    kernel_size=(
+                                                        1, self.param.N),
                                                     use_bias=False)
         self.reshape2 = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.B))
@@ -117,13 +118,14 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         self.prelu = tf.keras.layers.PReLU()
         self.reshape3 = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.Sc, 1))
-        self.output_conv1x1 = tf.keras.layers.Conv2D(filter=self.param.C * self.param.N,
+        self.output_conv1x1 = tf.keras.layers.Conv2D(filters=self.param.C * self.param.N,
                                                      kernel_size=(
                                                          1, self.param.Sc),
                                                      use_bias=False)
         self.reshape4 = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.C, self.param.N))
-        self.softmax = tf.keras.layers.Softmax(axis=-2)
+        self.softmax = tf.keras.layers.Softmax(
+            axis=-2)  # normalization axis = sel.param.C
 
     def call(self, mixture_weights):
         """
@@ -200,7 +202,7 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
         # (, T_hat, N) -> (, T_hat, 1, N)
         mixture_weights = tf.expand_dims(mixture_weights, 2)
         # (, T_hat, 1, N), (, T_hat, C, N) -> (, T_hat, C, N)
-        estimated_weights = self.multiply(mixture_weights, estimated_masks)
+        estimated_weights = self.multiply([mixture_weights, estimated_masks])
         # (, T_hat, C, N) -> (, T_hat, C, N, 1)
         estimated_weights = self.reshape1(estimated_weights)
         # (, T_hat, C, N, 1) -> (, T_hat, C, L, 1)
@@ -259,7 +261,7 @@ class ConvTasNet(tf.keras.Model):
         mixture_weights = self.encoder(mixture_segments)
         # (, T_hat, N) -> (, T_hat, C, N)
         estimated_masks = self.separator(mixture_weights)
-        # (, T_hat, N), (, T_hat, C, N) -> (, C, T_hat, L)
+        # # (, T_hat, N), (, T_hat, C, N) -> (, C, T_hat, L)
         estimated_sources = self.decoder(mixture_weights, estimated_masks)
         return estimated_sources
 
