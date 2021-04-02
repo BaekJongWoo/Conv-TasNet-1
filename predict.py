@@ -6,9 +6,9 @@ import tensorflow as tf
 import youtube_dl
 from os import path, listdir
 from dataset.musdb_dataset import get_track_names
-from model.convtasnet_param import get_param
-from model.convtasnet_model import ConvTasNet
-from model.loss import SISNR, SDR
+from conv_tasnet.param import get_param
+from conv_tasnet.model import ConvTasNet
+from conv_tasnet.loss import SISNR, SDR
 
 LEARNING_RATE = 1e-3
 EPSILION = 1e-8
