@@ -1,20 +1,19 @@
 import tensorflow as tf
-from convtasnet_param import ConvTasNetParam
+from param import ConvTasNetParam
 
 
 class Conv1DBlock(tf.keras.layers.Layer):
     """1-D Convolution Block using Depthwise Separable Convolution
 
-    TODO:
-        Add 'causality depended' layer normalization for bottleneck_conv, and depthwsie_conv respectively
-
     Attributes
         param (ConvTasNetParam): Hyperparamters
         dilation (int): Dilation factor
         bottleneck_conv (keras.layers.Conv1D): 1x1 convolution layer
-        prelu1 (keras.layers.PReLU): PReLU activation layer for the bottleneck_conv layer
+        prelu1 (keras.layers.PReLU): PReLU activation layer for bottleneck_conv
+        normalization1 (keras.layers.Layer): Causality depended normalization layer
         depthwise_conv (keras.layers.Conv1D): 1-D depthwise convolution layer
-        prelu2 (keras.layers.PReLU): PReLU activation layer for the depthwise_conv layer
+        prelu2 (keras.layers.PReLU): PReLU activation layer for depthwise_conv
+        normalization2 (keras.layers.Layer): Causality depended normalization layer
         residual_conv (keras.layers.Conv1D): 1x1 convolution layer corresponding to the resodual path
         skipconn_conv (keras.layers.Conv1D): 1x1 convolution layer corresponding to the skipconnection path
     """
@@ -23,19 +22,19 @@ class Conv1DBlock(tf.keras.layers.Layer):
         super(Conv1DBlock, self).__init__(**kwargs)
         self.param = param
         self.dilation = dilation
-        self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
-                                                      use_bias=False)
-        self.prelu1 = tf.keras.layers.PReLU()
 
         if self.param.causality:  # causal system
             self.causal = "causal"
-            self.layer_normalization1 = CumulativeLayerNorm(self.param.T_hat)
-            self.layer_normalization2 = CumulativeLayerNorm(self.param.T_hat)
+            self.normalization1 = CumulativeLayerNorm(self.param.H)
+            self.normalization2 = CumulativeLayerNorm(self.param.H)
         else:  # noncausal system
             self.causal = "same"
-            self.layer_normalization1 = GlobalLayerNorm(self.param.T_hat)
-            self.layer_normalization2 = GlobalLayerNorm(self.param.T_hat)
+            self.normalization1 = GlobalLayerNorm(self.param.H)
+            self.normalization2 = GlobalLayerNorm(self.param.H)
 
+        self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
+                                                      use_bias=False)
+        self.prelu1 = tf.keras.layers.PReLU()
         self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                      kernel_size=self.param.P,
                                                      dilation_rate=self.dilation,
@@ -54,7 +53,7 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         Locals:
             bottelneck_outputs: (, T_hat, H)
-            depthwise_inputs:  (, T_hat, H, 1)
+            depthwise_inputs:  (, T_hat, H)
             depthwise_outputs: (, T_hat, H)
 
         Returns:
@@ -66,9 +65,13 @@ class Conv1DBlock(tf.keras.layers.Layer):
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_inputs = self.prelu1(bottleneck_outputs)
         # (, T_hat, H) -> (, T_hat, H)
+        depthwise_inputs = self.normalization1(depthwise_inputs)
+        # (, T_hat, H) -> (, T_hat, H)
         depthwise_outputs = self.depthwise_conv(depthwise_inputs)
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_outputs = self.prelu2(depthwise_outputs)
+        # (, T_hat, H) -> (, T_hat, H)
+        depthwise_outputs = self.normalization2(depthwise_outputs)
         # (, T_hat, H) -> (, T_hat, B)
         residual_outputs = self.residual_conv(depthwise_outputs)
         # (, T_hat, B), (, T_hat, B) -> (, T_hat, B)
@@ -142,6 +145,7 @@ class GlobalLayerNorm(tf.keras.layers.Layer):
     def __init__(self, num_features: int, eps: float = 1e-8, **kwargs):
         super(GlobalLayerNorm, self).__init__(**kwargs)
         self.epsilon = eps
+        self.num_features = num_features
         gamma_init = tf.random_normal_initializer()
         self.gamma = tf.Variable(
             initial_value=gamma_init(shape=(1, num_features)), trainable=True)
@@ -153,10 +157,6 @@ class GlobalLayerNorm(tf.keras.layers.Layer):
         """
         Args:
             inputs: (, T_hat, num_features)
-
-        Locals:
-            mean: (, 1, 1)
-            var: (, 1, 1)
 
         Returns:
             outputs: (, T_hat, num_features)
@@ -181,6 +181,7 @@ class CumulativeLayerNorm(tf.keras.layers.Layer):
     def __init__(self, num_features: int, eps: float = 1e-8, **kwargs):
         super(CumulativeLayerNorm, self).__init__(**kwargs)
         self.epsilon = eps
+        self.num_features = num_features
         gamma_init = tf.random_normal_initializer()
         self.gamma = tf.Variable(
             initial_value=gamma_init(shape=(1, num_features)), trainable=True)
@@ -191,14 +192,10 @@ class CumulativeLayerNorm(tf.keras.layers.Layer):
     def call(self, inputs):
         """
         Args:
-            inputs: (, k, num_features) where k <= T_hat
-
-        Locals:
-            mean: (, k, 1)
-            var: (, k, 1)
+            inputs: (, T_hat, num_features) where k <= T_hat
 
         Returns:
-            outputs: (, k, num_features)
+            outputs: (, T_hat, num_features)
         """
         # (, k, num_features) -> (, k, 1), (, k, 1)
         mean, var = tf.nn.moments(inputs, axes=-1, keepdims=True)

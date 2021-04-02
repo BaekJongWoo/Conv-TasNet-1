@@ -1,5 +1,5 @@
 """
-Tensorflow 2.0 Implementation of the Fully-Convolutional Time-domain Audio Separation Network (Conv-TasNet)
+Tensorflow 2.x Implementation of the Fully-Convolutional Time-domain Audio Separation Network (Conv-TasNet)
 
 Authors:
     kaparoo
@@ -14,8 +14,8 @@ References:
 """
 
 import tensorflow as tf
-from convtasnet_param import ConvTasNetParam
-from temporalconvnet import TemporalConvNet
+from param import ConvTasNetParam
+from tcn import TemporalConvNet
 
 
 class ConvTasNetEncoder(tf.keras.layers.Layer):
@@ -23,9 +23,9 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
-        conv1d_U (keras.layers.Conv1D): 1-D convolution layer estimating weights of mixture segments
-        conv1d_G (keras.layers.Conv1D): 1-D convolution layer corresponding to the gating mechanism
-        multiply (keras.layers.Multiply): Layer for elementwise muliplication
+        conv1d_U (keras.layers.Conv1D): 1-D convolution layer estimating weights of the mixture_segments
+        conv1d_G (keras.layers.Conv1D, optional): 1-D convolution layer corresponding to the gating mechanism
+        multiply (keras.layers.Multiply, optional): Elementwise muliplication layer
     """
 
     __slots__ = ("param", "conv1d_U", "conv1d_G", "multiply")
@@ -135,9 +135,8 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
-        multiply (keras.layers.Multiply): Layer for elementwise multiplication
-        conv1d_V (keras.layers.Conv1D): 1-D transpose convolution layer estimating
-                                        sources of the original mixture segments
+        multiply (keras.layers.Multiply): Elementwise multiplication layer
+        conv1d_V (keras.layers.Conv1D): 1-D transpose convolution layer estimating sources of the original mixture segments
         permute (keras.layers.Permute): (, T_hat, C, L) -> (, C, T_hat, L)
     """
 
