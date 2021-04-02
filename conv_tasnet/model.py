@@ -34,9 +34,11 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
         super(ConvTasNetEncoder, self).__init__(**kwargs)
         self.param = param
         self.conv1d_U = tf.keras.layers.Conv1D(filters=self.param.N,
+                                               kernel_size=1,
                                                activation="linear",
                                                use_bias=False)
         self.conv1d_G = tf.keras.layers.Conv1D(filters=self.param.N,
+                                               kernel_size=1,
                                                activation="sigmoid",
                                                use_bias=False)
         self.multiply = tf.keras.layers.Multiply()
@@ -88,10 +90,12 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         self.param = param
         self.layer_normalization = tf.keras.layers.LayerNormalization()
         self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
+                                                    kernel_size=1,
                                                     use_bias=False)
         self.TCN = TemporalConvNet(self.param)
         self.prelu = tf.keras.layers.PReLU()
         self.output_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.C * self.param.N,
+                                                     kernel_size=1,
                                                      use_bias=False)
         self.output_reshape = tf.keras.layers.Reshape(
             target_shape=(self.param.T_hat, self.param.C, self.param.N))
@@ -147,6 +151,7 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
         self.param = param
         self.multiply = tf.keras.layers.Multiply()
         self.conv1d_V = tf.keras.layers.Conv1D(filters=self.param.L,
+                                               kernel_size=1,
                                                use_bias=False)
         self.permute = tf.keras.layers.Permute((2, 1, 3))
 

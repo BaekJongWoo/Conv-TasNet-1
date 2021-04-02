@@ -33,6 +33,7 @@ class Conv1DBlock(tf.keras.layers.Layer):
             self.normalization2 = GlobalLayerNorm(self.param.H)
 
         self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
+                                                      kernel_size=1,
                                                       use_bias=False)
         self.prelu1 = tf.keras.layers.PReLU()
         self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
@@ -42,8 +43,10 @@ class Conv1DBlock(tf.keras.layers.Layer):
                                                      use_bias=False)
         self.prelu2 = tf.keras.layers.PReLU()
         self.residual_conv = tf.keras.layers.Conv1D(filters=self.param.B,
+                                                    kernel_size=1,
                                                     use_bias=False)
         self.skipconn_conv = tf.keras.layers.Conv1D(filters=self.param.Sc,
+                                                    kernel_size=1,
                                                     use_bias=False)
 
     def call(self, block_inputs):
@@ -65,13 +68,13 @@ class Conv1DBlock(tf.keras.layers.Layer):
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_inputs = self.prelu1(bottleneck_outputs)
         # (, T_hat, H) -> (, T_hat, H)
-        depthwise_inputs = self.normalization1(depthwise_inputs)
+        # depthwise_inputs = self.normalization1(depthwise_inputs)
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_outputs = self.depthwise_conv(depthwise_inputs)
         # (, T_hat, H) -> (, T_hat, H)
         depthwise_outputs = self.prelu2(depthwise_outputs)
         # (, T_hat, H) -> (, T_hat, H)
-        depthwise_outputs = self.normalization2(depthwise_outputs)
+        # depthwise_outputs = self.normalization2(depthwise_outputs)
         # (, T_hat, H) -> (, T_hat, B)
         residual_outputs = self.residual_conv(depthwise_outputs)
         # (, T_hat, B), (, T_hat, B) -> (, T_hat, B)

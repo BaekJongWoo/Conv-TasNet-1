@@ -3,8 +3,8 @@ import numpy as np
 import musdb
 import random
 from tqdm import tqdm
-from convtasnet import ConvTasNet
-from convtasnetparam import ConvTasNetParam
+from model import ConvTasNet
+from param import ConvTasNetParam
 
 
 def get_track_names():
