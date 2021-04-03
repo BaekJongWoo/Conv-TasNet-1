@@ -17,7 +17,7 @@ References:
     [5] TasNet implementaion: https://github.com/paxbun/TasNet 
 
 Notices:
-    For every variable of type: tf.Tensor, notation (, K, N, ...) means that the variable is tensor of shape=(Batch_size, K, N, ...)
+    For every tf.Tensor variable, notation (, K, N, ...) means that the variable is the tf.Tensor of shape=(Batch_size, K, N, ...)
 """
 
 __all__ = ["ConvTasNetParam", "ConvTasNet", "SISNR", "SDR"]

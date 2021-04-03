@@ -4,22 +4,22 @@ from .normalizations import GlobalLayerNorm as gLN
 from .normalizations import CumulativeLayerNorm as cLN
 
 
-class ConvTasNetTCN(tf.keras.layers.Layer):
+class TemporalConvNet(tf.keras.layers.Layer):
     """Dilated Temporal Convolutional Network
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
-        conv1d_block_list (List[ConvTasNetConv1DBlock]): List of 1-D convolution blocks
+        conv1d_block_list (List[Conv1DBlock]): List of 1-D convolution blocks
     """
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
-        super(ConvTasNetTCN, self).__init__(**kwargs)
+        super(TemporalConvNet, self).__init__(**kwargs)
         self.param = param
         self.conv1d_block_list = []
         for _ in range(self.param.R):  # for each repeat
             for x in range(self.param.X):
                 self.conv1d_block_list.append(
-                    ConvTasNetConv1DBlock(self.param, dilation=2**x))
+                    Conv1DBlock(self.param, dilation=2**x))
         # avoid gradient missing warning
         self.conv1d_block_list[-1].is_last = True
 
@@ -43,10 +43,10 @@ class ConvTasNetTCN(tf.keras.layers.Layer):
 
     def get_config(self) -> dict:
         return self.param.get_config()
-# ConvTasNetTCN end
+# TemporalConvNet end
 
 
-class ConvTasNetConv1DBlock(tf.keras.layers.Layer):
+class Conv1DBlock(tf.keras.layers.Layer):
     """1-D Convolutional Block using Depthwise Separable Convolution
 
     Attributes:
@@ -64,7 +64,7 @@ class ConvTasNetConv1DBlock(tf.keras.layers.Layer):
     """
 
     def __init__(self, param: ConvTasNetParam, dilation: int, **kwargs):
-        super(ConvTasNetConv1DBlock, self).__init__(**kwargs)
+        super(Conv1DBlock, self).__init__(**kwargs)
         self.param = param
         self.dilation = dilation
         self.is_last = False
@@ -90,7 +90,7 @@ class ConvTasNetConv1DBlock(tf.keras.layers.Layer):
                                                      kernel_size=self.param.P,
                                                      dilation_rate=self.dilation,
                                                      padding=self.param.causal,
-                                                     groups=self.param.H,
+                                                     groups=self.param.H,  # MUST USE THIS OPTION FOR DEPTHWISE
                                                      use_bias=False)
         self.prelu2 = tf.keras.layers.PReLU()
         self.residual_conv = tf.keras.layers.Conv1D(filters=self.param.B,
@@ -134,4 +134,4 @@ class ConvTasNetConv1DBlock(tf.keras.layers.Layer):
 
     def get_cofig(self) -> dict:
         return self.param.get_config()
-# ConvTasNetConv1DBlock end
+# Conv1DBlock end

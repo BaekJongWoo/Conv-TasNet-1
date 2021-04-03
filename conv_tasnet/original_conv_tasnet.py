@@ -1,6 +1,6 @@
 import tensorflow as tf
 from .conv_tasnet_param import ConvTasNetParam
-from .temporal_conv_net import ConvTasNetTCN
+from .temporal_conv_net import TemporalConvNet
 
 
 class ConvTasNet(tf.keras.Model):
@@ -131,11 +131,8 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         param (ConvTasNetParam): Hyperparameters
         normalization (tf.keras.layers.LayerNormalization): Normalization layer
         input_conv1x1 (tf.keras.layers.Conv1D): 1x1 convolution layer
-        temporal_conv_net (ConTasNetTCN): Dilated-TCN layer
-        prelu (tf.keras.layer.PReLU): PReLU activation layer
-        output_conv1x1 (tf.keras.layers.Conv1D): 1x1 convolution layer
-        output_reshape (tf.keras.layers.Reshape): (, K, C*N) -> (, K, C, N)
-        sigmoid (tf.keras.activations.sigmoid): Sigmoid activation
+        temporal_conv_net (TemporalConvNet): Dilated-TCN layer
+        output_block (SeparatorOutputBlock): Output processing layer after the Dilated-TCN
     """
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
@@ -145,15 +142,8 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)
-        self.temporal_conv_net = ConvTasNetTCN(self.param)
-        self.prelu = tf.keras.layers.PReLU()
-        self.output_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.C * self.param.N,
-                                                     kernel_size=1,
-                                                     use_bias=False)
-        self.output_reshape = tf.keras.layers.Reshape(target_shape=(self.param.K,
-                                                                    self.param.C,
-                                                                    self.param.N))
-        self.sigmoid = tf.keras.activations.sigmoid
+        self.temporal_conv_net = TemporalConvNet(self.param)
+        self.output_block = SeperatorOutputBlock(self.param)
 
     def call(self, mixture_weights: tf.Tensor) -> tf.Tensor:
         """
@@ -169,16 +159,55 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
         tcn_inputs = self.input_conv1x1(mixture_weights)
         # (, K, B) -> (, K, S)
         tcn_outputs = self.temporal_conv_net(tcn_inputs)
-        # (, K, S) -> (, K, S)
-        tcn_outputs = self.prelu(tcn_outputs)
-        # (, K, S) -> (, K, C*N)
-        tcn_outputs = self.output_conv1x1(tcn_outputs)
-        # (, K, C*N) -> (, K, C, N)
-        estimated_masks = self.output_reshape(tcn_outputs)
-        # (, K, C, N) -> (, K, C, N)
-        estimated_masks = self.sigmoid(estimated_masks)
+        # (, K, S) -> (, K, C, N)
+        estimated_masks = self.output_block(tcn_outputs)
         return estimated_masks
 
-    def get_config(self):
+    def get_config(self) -> dict:
         return self.param.get_config()
 # ConvTasNetSeparator end
+
+
+class SeperatorOutputBlock(tf.keras.layers.Layer):
+    """Output Process after Dilated-TCN in Separtation Module
+
+    Attributes:
+        param (ConvTasNetParam): Hyperparameters
+        prelu (tf.keras.layer.PReLU): PReLU activation layer
+        output_conv1x1 (tf.keras.layers.Conv1D): 1x1 convolution layer
+        output_reshape (tf.keras.layers.Reshape): (, K, C*N) -> (, K, C, N)
+        activations (tf.keras.activations.sigmoid): Sigmoid activation        
+    """
+
+    def __init__(self, param: ConvTasNetParam, **kwargs):
+        self.param = param
+        self.prelu = tf.keras.layers.PReLU()
+        self.output_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.C * self.param.N,
+                                                     kernel_size=1,
+                                                     use_bias=False)
+        self.output_reshape = tf.keras.layers.Reshape(target_shape=(self.param.K,
+                                                                    self.param.C,
+                                                                    self.param.N))
+        self.sigmoid = tf.keras.activations.sigmoid
+
+    def call(self, block_inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Args:
+            block_inputs (tf.Tensor): Tensor of shape=(, K, S)
+
+        Returns:
+            block_outputs (tf.Tensor): Tensor of shape=(, K, C, N)
+        """
+        # (, K, S) -> (, K, S)
+        block_outputs = self.prelu(block_inputs)
+        # (, K, S) -> (, K, C*N)
+        block_outputs = self.output_conv1x1(block_outputs)
+        # (, K, C*N) -> (, K, C, N)
+        block_outputs = self.output_reshape(block_outputs)
+        # (, K, C, N) -> (, K, C, N)
+        block_outputs = self.sigmoid(block_outputs)
+        return block_outputs
+
+    def get_config(self) -> dict:
+        return self.param.get_config()
+# SeperatorOutputBlock end
