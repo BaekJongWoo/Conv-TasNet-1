@@ -71,16 +71,16 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         if self.param.causal:  # causal system
             self.causal = "causal"
-            self.normalization1 = cLN(H=self.param.H,
-                                      eps=self.param.eps)
-            self.normalization2 = cLN(H=self.param.H,
-                                      eps=self.param.eps)
+            # self.normalization1 = cLN(H=self.param.H,
+            #                           eps=self.param.eps)
+            # self.normalization2 = cLN(H=self.param.H,
+            #                           eps=self.param.eps)
         else:  # noncausal system
             self.causal = "same"
-            self.normalization1 = gLN(H=self.param.H,
-                                      eps=self.param.eps)
-            self.normalization2 = gLN(H=self.param.H,
-                                      eps=self.param.eps)
+            # self.normalization1 = gLN(H=self.param.H,
+            #                           eps=self.param.eps)
+            # self.normalization2 = gLN(H=self.param.H,
+            #                           eps=self.param.eps)
 
         self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                       kernel_size=1,
@@ -89,14 +89,14 @@ class Conv1DBlock(tf.keras.layers.Layer):
         self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                      kernel_size=self.param.P,
                                                      dilation_rate=self.dilation,
-                                                     padding=self.param.causal,
+                                                     padding=self.causal,
                                                      groups=self.param.H,  # MUST USE THIS OPTION FOR DEPTHWISE
                                                      use_bias=False)
         self.prelu2 = tf.keras.layers.PReLU()
         self.residual_conv = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)
-        self.skipconn_conv = tf.keras.layers.Conv1D(filters=self.param.Sc,
+        self.skipconn_conv = tf.keras.layers.Conv1D(filters=self.param.S,
                                                     kernel_size=1,
                                                     use_bias=False)
 
@@ -114,13 +114,13 @@ class Conv1DBlock(tf.keras.layers.Layer):
         # (, K, H) -> (, K, H)
         depthwise_inputs = self.prelu1(bottleneck_outputs)
         # (, K, H) -> (, K, H)
-        depthwise_inputs = self.normalization1(depthwise_inputs)
+        # depthwise_inputs = self.normalization1(depthwise_inputs)
         # (, K, H) -> (, K, H)
         depthwise_outputs = self.depthwise_conv(depthwise_inputs)
         # (, K, H) -> (, K, H)
         depthwise_outputs = self.prelu2(depthwise_outputs)
         # (, K, H) -> (, K, H)
-        depthwise_outputs = self.normalization2(depthwise_outputs)
+        # depthwise_outputs = self.normalization2(depthwise_outputs)
 
         # avoid gradient missing
         # (, K, H) -> (, K, B)

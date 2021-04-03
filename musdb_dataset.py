@@ -33,7 +33,7 @@ def musdb_generator(param: ConvTasNetParam, num_songs: int, batch_size: int,
         mus.append(decode_source(track))
     print("Decoding dataset...done")
 
-    duration = (param.T_hat + 1) * param.L // 2  # 50% overlap
+    duration = (param.K + 1) * param.L // 2  # 50% overlap
     for _ in range(n):
         X = []
         Y = []
@@ -49,7 +49,7 @@ def musdb_generator(param: ConvTasNetParam, num_songs: int, batch_size: int,
             x_0, x_1, y_0, y_1 = [], [], [], []
 
             _start = batch_start
-            for _ in range(param.T_hat):
+            for _ in range(param.K):
                 # [0], [1] for stereo
                 _end = _start + param.L
                 segment_0 = np.array(track["audio"][0][_start:_end])  # 1 x L
@@ -82,5 +82,5 @@ def make_dataset(param: ConvTasNetParam, num_songs: int, batch_size: int, n: int
     return tf.data.Dataset.from_generator(lambda: musdb_generator(param, num_songs, batch_size, n),
                                           output_types=(
                                               tf.float32, tf.float32),
-                                          output_shapes=(tf.TensorShape((batch_size * 2, param.T_hat, param.L)),
-                                                         tf.TensorShape((batch_size * 2, param.C, param.T_hat, param.L))))
+                                          output_shapes=(tf.TensorShape((batch_size * 2, param.K, param.L)),
+                                                         tf.TensorShape((batch_size * 2, param.C, param.K, param.L))))

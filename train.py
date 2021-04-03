@@ -4,11 +4,11 @@ from conv_tasnet import SDR
 from conv_tasnet import SISNR
 from conv_tasnet import ConvTasNet
 from conv_tasnet import ConvTasNetParam
-from musdb_dataset import make_dataset
+from musdb_dataset import make_dataset, get_track_names
 
 
 def get_directory_name(use_sdr: bool, param: ConvTasNetParam,
-                       prefix: str = "/home/kaparoo/conv_tasnet") -> str:
+                       prefix: str = "/home/kaparoo/conv-tasnet/") -> str:
     """Make directory name from hyperparameters
 
     Args:
@@ -22,14 +22,14 @@ def get_directory_name(use_sdr: bool, param: ConvTasNetParam,
     p = param  # alias
     loss_str = "sdr" if use_sdr else "sisnr"
     caual_str = "causal" if p.causal else "noncausal"
-    directory_name = f"{prefix}/conv_tasnet_train/{loss_str}_{caual_str}_{p.K}K_{p.C}C_{p.L}L_{p.N}N_{p.B}B_{p.S}S_{p.H}H_{p.P}P_{p.X}X_{p.R}R"
+    directory_name = f"{prefix}conv_tasnet_train/{loss_str}_{caual_str}_{p.K}K_{p.C}C_{p.L}L_{p.N}N_{p.B}B_{p.S}S_{p.H}H_{p.P}P_{p.X}X_{p.R}R"
     return directory_name
 # get_directory_name(*) end
 
 
 def make_model(learning_rate: float = 0.001, l2_norm_clip: float = 5,
-               eps: float = 1e-8, use_sdr: bool = False, is_caual: bool = True,
-               num_class: int = 4, dir_prefix: str = "/home/kaparoo/conv_tasnet"):
+               eps: float = 1e-8, use_sdr: bool = False, causal: bool = True,
+               num_class: int = 3, dir_prefix: str = "/home/kaparoo/conv-tasnet/"):
     """Make Conv-TasNet Instance
 
     Args:
@@ -37,7 +37,7 @@ def make_model(learning_rate: float = 0.001, l2_norm_clip: float = 5,
         l2_norm_clip (float): Gradient clipping factor
         eps (float): Small constant for numerical stability
         use_sdr (bool): Metric flag
-        is_causal (bool): Caulity flag
+        causal (bool): Caulity flag
         num_class (int): Numbers of class
         dir_prefix (str): Directory prefix
 
@@ -49,23 +49,33 @@ def make_model(learning_rate: float = 0.001, l2_norm_clip: float = 5,
     adam = tf.keras.optimizers.Adam(learning_rate=learning_rate,
                                     clipnorm=l2_norm_clip)
     loss = SDR(eps=eps) if use_sdr else SISNR(eps=eps)
-    param = ConvTasNetParam(C=num_class, causal=is_caual, eps=eps)
+    param = ConvTasNetParam(C=num_class, causal=causal, eps=eps)
     dir_name = get_directory_name(use_sdr, param, dir_prefix)
-    model = ConvTasNet(param, adam, loss)
+    model = ConvTasNet.make(param, adam, loss)
     return model, param, dir_name
 # make_model(*) end
 
 
-def train_model(max_epoch: int = 100, prefix: str = "/home/kaparoo/conv_tasnet"):
+def train_model(max_epoch: int = 100, causal: bool = True, use_sdr: bool = False, eps: float = 1e-8,
+                num_class: int = 3, dir_prefix: str = "/home/kaparoo/conv-tasnet/"):
     """Model trainging
 
     Args:
+        max_epoch (int): Maximum epoch for model training
+        causal (bool): Causality flag
+        use_sdr (bool): Loss floag
+            - True: SDR(eps)
+            - False: SISNR(eps)
+        eps (float): Small constant for numerical stability
         prefix (str): Directory prefix
 
     Returns:
-        history
+        history (tf.keras.callbacks.History)
     """
-    model, param, dir_name = make_model()
+    model, param, dir_name = make_model(num_class=num_class,
+                                        causal=causal,
+                                        use_sdr=use_sdr,
+                                        dir_prefix=dir_prefix)
     history = None
     epoch = 0
     if path.exists(dir_name):
@@ -74,9 +84,6 @@ def train_model(max_epoch: int = 100, prefix: str = "/home/kaparoo/conv_tasnet")
         checkpoint_name = checkpoints[-1].split(".")[0]
         epoch = int(checkpoint_name) + 1
         model.load_weights(f"{dir_name}/{checkpoint_name}.ckpt")
-    else:
-        print(f"directory: `{dir_name}` is not exit!")
-        return
 
     while epoch < max_epoch:
         checkpoint_path = f"{dir_name}/{epoch:05d}.ckpt"
@@ -91,4 +98,5 @@ def train_model(max_epoch: int = 100, prefix: str = "/home/kaparoo/conv_tasnet")
 
 
 if __name__ == "__main__":
-    history = train_model(max_epoch=100)
+    num_track = len(get_track_names())
+    history = train_model(max_epoch=100, num_class=num_track)

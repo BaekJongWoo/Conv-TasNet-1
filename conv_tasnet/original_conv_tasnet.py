@@ -110,9 +110,9 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
             estimated_sources (tf.Tensor): Tensor of shape=(, C, K, L)
         """
         # (, K, N) -> (, K, 1, N)
-        sources_weights = tf.expand_dims(estimated_masks, 2)
+        sources_weights = tf.expand_dims(mixture_weights, 2)
         # (, K, 1, N), (, K, C, N) -> (, K, C, N)
-        sources_weights = self.multiply([mixture_weights, sources_weights])
+        sources_weights = self.multiply([estimated_masks, sources_weights])
         # (, K, C, N) -> (, K, C, L)
         estimated_sources = self.conv1_V(sources_weights)
         # (, K, C, L) -> (, C, K, L)
@@ -138,7 +138,8 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
-        self.normalization = tf.keras.layers.LayerNormalization(self.param.eps)
+        self.normalization = tf.keras.layers.LayerNormalization(
+            epsilon=self.param.eps)
         self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)
@@ -180,6 +181,7 @@ class SeperatorOutputBlock(tf.keras.layers.Layer):
     """
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
+        super(SeperatorOutputBlock, self).__init__(**kwargs)
         self.param = param
         self.prelu = tf.keras.layers.PReLU()
         self.output_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.C * self.param.N,

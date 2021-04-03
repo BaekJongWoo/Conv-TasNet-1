@@ -59,4 +59,4 @@ print("saving...")
 
 for idx, track in enumerate(get_track_names()):
     sf.write(
-        f"/home/kaparoo/Conv-TasNet/convtasnet_predict/{title}_{track}.wav", separated[idx], sr)
+        f"/home/kaparoo/conv-tasnet/convtasnet_predict/{title}_{track}.wav", separated[idx], sr)
