@@ -1,6 +1,6 @@
 # train, predict results
-.train_results/
-.predict_results/
+train_results/
+predict_results/
 
 .vscode/*
 # !.vscode/settings.json

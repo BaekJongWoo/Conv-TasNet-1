@@ -15,8 +15,6 @@ if path.exists(dir_name):
     checkpoints.sort()
     checkpoint_name = checkpoints[-1].split(".")[0]
     model.load_weights(f"{dir_name}/{checkpoint_name}.ckpt")
-else:
-    print(f"directory: `{dir_name}` is not exit!")
 
 
 def youtube_dl_hook(d):
@@ -59,4 +57,4 @@ print("saving...")
 
 for idx, track in enumerate(get_track_names()):
     sf.write(
-        f"/home/kaparoo/conv-tasnet/convtasnet_predict/{title}_{track}.wav", separated[idx], sr)
+        f"/home/kaparoo/conv-tasnet/predict_results/{title}_{track}.wav", separated[idx], sr)

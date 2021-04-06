@@ -5,6 +5,7 @@ from conv_tasnet import SISNR
 from conv_tasnet import ConvTasNet
 from conv_tasnet import ConvTasNetParam
 from musdb_dataset import make_dataset, get_track_names
+import matplotlib.pyplot as plt
 
 
 def get_directory_name(use_sdr: bool, param: ConvTasNetParam,
@@ -20,9 +21,9 @@ def get_directory_name(use_sdr: bool, param: ConvTasNetParam,
         directory_name (str): Directory name
     """
     p = param  # alias
-    loss_str = "sdr" if use_sdr else "sisnr"
+    loss_str = "use_sdr" if use_sdr else "sisnr"
     caual_str = "causal" if p.causal else "noncausal"
-    directory_name = f"{prefix}conv_tasnet_train/{loss_str}_{caual_str}_{p.K}K_{p.C}C_{p.L}L_{p.N}N_{p.B}B_{p.S}S_{p.H}H_{p.P}P_{p.X}X_{p.R}R"
+    directory_name = f"{prefix}train_results/{loss_str}_{caual_str}_{p.K}K_{p.C}C_{p.L}L_{p.N}N_{p.B}B_{p.S}S_{p.H}H_{p.P}P_{p.X}X_{p.R}R"
     return directory_name
 # get_directory_name(*) end
 
@@ -70,12 +71,13 @@ def train_model(max_epoch: int = 100, causal: bool = True, use_sdr: bool = False
         prefix (str): Directory prefix
 
     Returns:
-        history (tf.keras.callbacks.History)
+        history (tf.keras.callbacks.History): History of model loss and accuracy
     """
     model, param, dir_name = make_model(num_class=num_class,
                                         causal=causal,
                                         use_sdr=use_sdr,
                                         dir_prefix=dir_prefix)
+    model.summary()
     history = None
     epoch = 0
     if path.exists(dir_name):
@@ -98,5 +100,11 @@ def train_model(max_epoch: int = 100, causal: bool = True, use_sdr: bool = False
 
 
 if __name__ == "__main__":
+    max_epoch = 50
+    causal = False
+    use_sdr = False
     num_track = len(get_track_names())
-    history = train_model(max_epoch=100, num_class=num_track)
+    history = train_model(max_epoch=max_epoch,
+                          causal=causal,
+                          use_sdr=use_sdr,
+                          num_class=num_track)

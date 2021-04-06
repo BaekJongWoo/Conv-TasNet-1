@@ -11,6 +11,7 @@ class SISNR(tf.keras.losses.Loss):
     def __init__(self, eps: float = 1e-8, **kwargs):
         super(SISNR, self).__init__(**kwargs)
         self.eps = eps
+        self.name = 'SISNR_loss'
 
     def call(self, s: tf.Tensor, s_hat: tf.Tensor) -> float:
         """
@@ -41,6 +42,7 @@ class SDR(tf.keras.losses.Loss):
     def __init__(self, eps: float = 1e-8, **kwargs):
         super(SDR, self).__init__(**kwargs)
         self.eps = eps
+        self.name = 'SDR_loss'
 
     def call(self, s: tf.Tensor, s_hat: tf.Tensor) -> float:
         """
@@ -51,7 +53,7 @@ class SDR(tf.keras.losses.Loss):
         Returns:
             loss (float): SDR loss
         """
-        loss = 20 * tf.math.log(tf.norm(s-s_hat) /
+        loss = 20 * tf.math.log(tf.norm(s - s_hat) /
                                 (tf.norm(s) + self.eps) + self.eps)
         return loss
 # SDR end

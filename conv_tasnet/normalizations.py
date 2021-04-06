@@ -9,20 +9,18 @@ class LayerNormInterface(tf.keras.layers.Layer):
         beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
         gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
         eps (float): Small constant for numerical stability
-        multiply (keras.layers.Multiply): Elementwise multiplication layer
     """
 
     def __init__(self, H: int, eps: float = 1e-8, **kwargs):
         super(LayerNormInterface, self).__init__(**kwargs)
         self.H = H
-        _gamma_init = tf.random_normal_initializer()
-        self.gamma = tf.Variable(initial_value=_gamma_init(shape=(1, self.H)),
-                                 trainable=True)
-        _beta_init = tf.zeros_initializer()
-        self.beta = tf.Variable(initial_value=_beta_init(shape=(1, self.H)),
-                                trainable=True)
+        self.gamma = self.add_weight(shape=(1, self.H),
+                                     initializer="random_normal",
+                                     trainable=True)
+        self.beta = self.add_weight(shape=(1, self.H),
+                                    initializer="zeros",
+                                    trainable=True)
         self.eps = eps
-        self.multiply = tf.keras.layers.Multiply()
 
     def call(self, input: tf.Tensor) -> tf.Tensor:
         """
@@ -48,7 +46,6 @@ class GlobalLayerNorm(LayerNormInterface):
         beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
         gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
         eps (float): Small constant for numerical stability
-        multiply (keras.layers.Multiply): Elementwise multiplication layer
     """
 
     def __init__(self, H: int, eps: float = 1e-8, **kwargs):
@@ -62,15 +59,51 @@ class GlobalLayerNorm(LayerNormInterface):
         Returns:
             outputs (tf.Tensor): Tensor of shape=(, K, H)
         """
-        mean, var = tf.nn.moments(inputs, axes=[1, 2], keepdims=True)
-        outputs = self.multiply([self.gamma, inputs - mean]) / \
-            tf.math.sqrt(var + self.eps) + self.beta
+        mean = tf.reshape(tf.reduce_mean(inputs, axis=[1, 2]), [-1, 1, 1])
+        var = tf.reshape(tf.reduce_mean(
+            (inputs-mean)**2, axis=[1, 2]), [-1, 1, 1])
+        outputs = self.gamma * ((inputs - mean) /
+                                (var + self.eps) ** 0.5) + self.beta
         return outputs
 # GlobalLayerNorm end
 
 
+class ChannelwiseLayerNorm(LayerNormInterface):
+    """Channelwise Layer Normalization (i.e., cwLN)
+
+    Description:
+        Layer normalization for `causal` system
+        Inherited from LayerNormInterface
+
+    Attributes:
+        H (int): Number of features
+        beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
+        gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
+        eps (float): Small constant for numerical stability
+    """
+
+    def __init__(self, H: int, eps: float = 1e-8, **kwargs):
+        super(ChannelwiseLayerNorm, self).__init__(H=H, eps=eps, **kwargs)
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Args:
+            inputs (tf.Tensor): Tensor of shape=(, K, H)
+
+        Returns:
+            outputs (tf.Tensor): Tensor of shape=(, K, H)
+        """
+        mean = tf.reshape(tf.reduce_mean(inputs, axis=[2]), [-1, 1, self.H])
+        var = tf.reshape(tf.reduce_mean(
+            (inputs-mean)**2, axis=[2]), [-1, 1, self.H])
+        outputs = self.gamma * ((inputs - mean) /
+                                (var + self.eps) ** 0.5) + self.beta
+        return outputs
+# ChannelwiseLayerNorm end
+
+
 class CumulativeLayerNorm(LayerNormInterface):
-    """Cumulative Layer Normalization (i.e., cLN)
+    """Channelwise Layer Normalization (i.e., cwLN)
 
     Description:
         Layer normalization for `causal` system
@@ -96,16 +129,18 @@ class CumulativeLayerNorm(LayerNormInterface):
             outputs (tf.Tensor): Tensor of shape=(, K, H)
         """
         outputs = []
-        for k in range(inputs.shape[-2]):
+        for k in range(inputs.shape[2]):
             sub_inputs = inputs[:, :k+1]
-            sub_mean, sub_var = tf.nn.moments(
-                sub_inputs, axes=[1, 2], keepdims=True)
-            sub_outputs = self.multiply([self.gamma, inputs[:, k] - sub_mean]) / \
-                tf.math.sqrt(sub_var + self.eps) + self.beta
+            sub_mean = tf.reshape(tf.reduce_mean(
+                inputs, axis=[1, 2]), [-1, 1, 1])
+            sub_var = tf.reshape(tf.reduce_mean(
+                (sub_inputs - sub_mean)**2, axis=[1, 2]), [-1, 1, 1])
+            sub_outputs = self.gamma * ((sub_inputs[:, k] - mean) /
+                                        (var + self.eps) ** 0.5) + self.beta
             outputs.append(sub_outputs)
         outputs = tf.concat(outputs, -2)
         return outputs
-# CumulativeLayerNorm end
+# CumumlativeLayerNorm end
 
 
 class ExponentialLayerNorm(LayerNormInterface):
@@ -133,7 +168,6 @@ class ExponentialLayerNorm(LayerNormInterface):
         """
         Args:
             inputs (tf.Tensor): Tensor of shape=(, K, H)
-
         Returns:
             outputs (tf.Tensor): Tensor of shape=(, K, H)
         """

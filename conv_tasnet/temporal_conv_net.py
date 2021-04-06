@@ -1,7 +1,5 @@
 import tensorflow as tf
 from .conv_tasnet_param import ConvTasNetParam
-from .normalizations import GlobalLayerNorm as gLN
-from .normalizations import CumulativeLayerNorm as cLN
 
 
 class TemporalConvNet(tf.keras.layers.Layer):
@@ -55,10 +53,10 @@ class Conv1DBlock(tf.keras.layers.Layer):
         is_last (bool): Flag whether target instance is last block in TCN
         bottleneck_conv (tf.keras.layers.Conv1D): 1x1 convolution layer
         prelu1 (tf.keras.layers.PReLU): PReLU activation layer for bottleneck_conv
-        normalization1 (cLN | gLN): Causality depended normalization layer
+        normalization1 (tf.keras.layers.LayerNormalization): Causality depended normalization layer
         depthwise_conv (tf.keras.layers.Conv1D): 1-D depthwise convolution layer
         prelu2 (tf.keras.layers.PReLU): PReLU activation layer for depthwise_conv
-        normalization2 (cLN | gLN): Causality depended normalization layer
+        normalization2 (tf.keras.layers.LayerNormalization): Causality depended normalization layer
         residual_conv (tf.keras.layers.Conv1D): 1x1 convolution layer corresponding to the resodual path
         skipconn_conv (tf.keras.layers.Conv1D): 1x1 convolution layer corresponding to the skipconnection path
     """
@@ -69,30 +67,25 @@ class Conv1DBlock(tf.keras.layers.Layer):
         self.dilation = dilation
         self.is_last = False
 
-        if self.param.causal:  # causal system
-            self.causal = "causal"
-            # self.normalization1 = cLN(H=self.param.H,
-            #                           eps=self.param.eps)
-            # self.normalization2 = cLN(H=self.param.H,
-            #                           eps=self.param.eps)
-        else:  # noncausal system
-            self.causal = "same"
-            # self.normalization1 = gLN(H=self.param.H,
-            #                           eps=self.param.eps)
-            # self.normalization2 = gLN(H=self.param.H,
-            #                           eps=self.param.eps)
-
+        if self.param.causal:
+            self.causal_label = "causal"
+        else:
+            self.causal_label = "same"
         self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                       kernel_size=1,
                                                       use_bias=False)
-        self.prelu1 = tf.keras.layers.PReLU()
+        self.prelu1 = tf.keras.layers.PReLU(shared_axes=[1, 2])
+        self.normalization1 = tf.keras.layers.LayerNormalization(
+            epsilon=self.param.eps)
         self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                      kernel_size=self.param.P,
                                                      dilation_rate=self.dilation,
-                                                     padding=self.causal,
+                                                     padding=self.causal_label,
                                                      groups=self.param.H,  # MUST USE THIS OPTION FOR DEPTHWISE
                                                      use_bias=False)
-        self.prelu2 = tf.keras.layers.PReLU()
+        self.prelu2 = tf.keras.layers.PReLU(shared_axes=[1, 2])
+        self.normalization2 = tf.keras.layers.LayerNormalization(
+            epsilon=self.param.eps)
         self.residual_conv = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)
@@ -114,13 +107,13 @@ class Conv1DBlock(tf.keras.layers.Layer):
         # (, K, H) -> (, K, H)
         depthwise_inputs = self.prelu1(bottleneck_outputs)
         # (, K, H) -> (, K, H)
-        # depthwise_inputs = self.normalization1(depthwise_inputs)
+        depthwise_inputs = self.normalization1(depthwise_inputs)
         # (, K, H) -> (, K, H)
         depthwise_outputs = self.depthwise_conv(depthwise_inputs)
         # (, K, H) -> (, K, H)
         depthwise_outputs = self.prelu2(depthwise_outputs)
         # (, K, H) -> (, K, H)
-        # depthwise_outputs = self.normalization2(depthwise_outputs)
+        depthwise_outputs = self.normalization2(depthwise_outputs)
 
         # avoid gradient missing
         # (, K, H) -> (, K, B)
