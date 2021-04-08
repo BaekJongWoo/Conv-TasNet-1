@@ -67,11 +67,12 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
                                                kernel_size=1,
                                                activation=self.param.w_activation,
                                                use_bias=False)
-        self.conv1d_G = tf.keras.layers.Conv1D(filters=self.param.N,
-                                               kernel_size=1,
-                                               activation="sigmoid",
-                                               use_bias=False)
-        self.multiply = tf.keras.layers.Multiply()
+        if self.param.gating:
+            self.conv1d_G = tf.keras.layers.Conv1D(filters=self.param.N,
+                                                   kernel_size=1,
+                                                   activation="sigmoid",
+                                                   use_bias=False)
+            self.multiply = tf.keras.layers.Multiply()
 
     def call(self, mixture_segments: tf.Tensor) -> tf.Tensor:
         """

@@ -15,6 +15,7 @@ if path.exists(dir_name):
     checkpoints.sort()
     checkpoint_name = checkpoints[-1].split(".")[0]
     model.load_weights(f"{dir_name}/{checkpoint_name}.ckpt")
+    # model.load_weights(f"{dir_name}/00005.ckpt")
 
 
 def youtube_dl_hook(d):

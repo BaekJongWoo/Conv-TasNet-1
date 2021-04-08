@@ -102,7 +102,7 @@ def train_model(max_epoch: int = 100, causal: bool = True, use_sdr: bool = False
 
 if __name__ == "__main__":
     max_epoch = 50
-    causal = True
+    causal = False
     use_sdr = True
     num_track = len(get_track_names())
     history = train_model(max_epoch=max_epoch,
