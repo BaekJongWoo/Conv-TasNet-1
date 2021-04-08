@@ -26,7 +26,7 @@ class ConvTasNetParam():
                  H: int = 512, P: int = 3,
                  X: int = 8, R: int = 3,
                  causal: bool = True,
-                 gating: bool = True,
+                 gating: bool = False,
                  w_activation: str = "linear",
                  m_activation: str = "sigmoid",
                  eps: float = 1e-8):
@@ -47,7 +47,7 @@ class ConvTasNetParam():
                 "B": self.B, "S": self.S,
                 "H": self.H, "P": self.P,
                 "X": self.X, "R": self.X,
-                "Causal": self.causal,
+                "causal": self.causal,
                 "gating": self.gating,
                 "weight_activation": self.w_activation,
                 "mask_activation": self.m_activation,

@@ -1,5 +1,7 @@
 import tensorflow as tf
 from .conv_tasnet_param import ConvTasNetParam
+from .normalizations import GlobalLayerNorm as gLN
+from .normalizations import CausalLayerNorm as cLN
 
 
 class TemporalConvNet(tf.keras.layers.Layer):
@@ -69,14 +71,23 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         if self.param.causal:
             self.causal_label = "causal"
+            self.normalization1 = cLN(H=self.param.H, eps=self.param.eps)
+            self.normalization2 = cLN(H=self.param.H, eps=self.param.eps)
         else:
             self.causal_label = "same"
+            self.normalization1 = gLN(H=self.param.H, eps=self.param.eps)
+            self.normalization2 = gLN(H=self.param.H, eps=self.param.eps)
+
+        # self.normalization1 = tf.keras.layers.LayerNormalization(
+        #     epsilon=self.param.eps)
+        # self.normalization2 = tf.keras.layers.LayerNormalization(
+        #     epsilon=self.param.eps)
+
         self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                       kernel_size=1,
                                                       use_bias=False)
         self.prelu1 = tf.keras.layers.PReLU(shared_axes=[1, 2])
-        self.normalization1 = tf.keras.layers.LayerNormalization(
-            epsilon=self.param.eps)
+
         self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                      kernel_size=self.param.P,
                                                      dilation_rate=self.dilation,
@@ -84,8 +95,7 @@ class Conv1DBlock(tf.keras.layers.Layer):
                                                      groups=self.param.H,  # MUST USE THIS OPTION FOR DEPTHWISE
                                                      use_bias=False)
         self.prelu2 = tf.keras.layers.PReLU(shared_axes=[1, 2])
-        self.normalization2 = tf.keras.layers.LayerNormalization(
-            epsilon=self.param.eps)
+
         self.residual_conv = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)

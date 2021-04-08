@@ -11,16 +11,15 @@ class SISNR(tf.keras.losses.Loss):
     def __init__(self, eps: float = 1e-8, **kwargs):
         super(SISNR, self).__init__(**kwargs)
         self.eps = eps
-        self.name = 'SISNR_loss'
 
-    def call(self, s: tf.Tensor, s_hat: tf.Tensor) -> float:
+    def call(self, s: tf.Tensor, s_hat: tf.Tensor):
         """
         Args:
-            s (tf.Tensor): original clean source
-            s_hat (tf.Tensor): estimated source
+            s (tf.Tensor): original clean sources
+            s_hat (tf.Tensor): estimated sources
 
         Returns:
-            loss (float): SI-SNR loss
+            loss: SI-SNR loss
         """
         # s_target = proj_{s}(s_hat)
         s_target = (tf.reduce_sum(tf.multiply(s, s_hat)) /
@@ -42,16 +41,15 @@ class SDR(tf.keras.losses.Loss):
     def __init__(self, eps: float = 1e-8, **kwargs):
         super(SDR, self).__init__(**kwargs)
         self.eps = eps
-        self.name = 'SDR_loss'
 
-    def call(self, s: tf.Tensor, s_hat: tf.Tensor) -> float:
+    def call(self, s: tf.Tensor, s_hat: tf.Tensor):
         """
         Args:
-            s (tf.Tensor): original clean source
-            s_hat (tf.Tensor): estimated source
+            s (tf.Tensor): original clean sources
+            s_hat (tf.Tensor): estimated sources
 
         Returns:
-            loss (float): SDR loss
+            loss: SDR loss
         """
         loss = 20 * tf.math.log(tf.norm(s - s_hat) /
                                 (tf.norm(s) + self.eps) + self.eps)

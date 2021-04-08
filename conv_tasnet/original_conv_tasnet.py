@@ -1,6 +1,8 @@
 import tensorflow as tf
 from .conv_tasnet_param import ConvTasNetParam
 from .temporal_conv_net import TemporalConvNet
+from .normalizations import GlobalLayerNorm as gLN
+from .normalizations import CausalLayerNorm as cLN
 
 
 class ConvTasNet(tf.keras.Model):
@@ -150,12 +152,10 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
-        # if self.param.causal:  # causal system
-        #     self.normalization = cLN(H=self.param.N, eps=self.param.eps)
-        # else:  # causal system
-        #     self.normalization = gLN(H=self.param.N, eps=self.param.eps)
-        self.normalization = tf.keras.layers.LayerNormalization(
-            epsilon=self.param.eps)
+        if self.param.causal:  # causal system
+            self.normalization = cLN(H=self.param.N, eps=self.param.eps)
+        else:  # noncausal system
+            self.normalization = gLN(H=self.param.N, eps=self.param.eps)
         self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)
@@ -212,7 +212,7 @@ class SeperatorOutputBlock(tf.keras.layers.Layer):
             self.activation = tf.keras.activations.sigmoid
         elif self.param.m_activation == "relu":
             self.activation = tf.keras.activations.relu
-        else:
+        else:  # default
             self.activation = tf.keras.activations.linear
 
     def call(self, block_inputs: tf.Tensor) -> tf.Tensor:
