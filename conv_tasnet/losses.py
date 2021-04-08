@@ -27,6 +27,7 @@ class SISNR(tf.keras.losses.Loss):
         e_noise = s_hat - s_target
         loss = 20 * tf.math.log(tf.norm(e_noise) /
                                 (tf.norm(s_target) + self.eps) + self.eps)
+        lose = lose / tf.math.log(10)  # let base of log is 10
         return loss
 # SISNR end
 
@@ -53,5 +54,6 @@ class SDR(tf.keras.losses.Loss):
         """
         loss = 20 * tf.math.log(tf.norm(s - s_hat) /
                                 (tf.norm(s) + self.eps) + self.eps)
+        loss = loss / tf.math.log(10)  # let base of log is 10
         return loss
 # SDR end

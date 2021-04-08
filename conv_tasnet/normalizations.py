@@ -2,27 +2,25 @@ import tensorflow as tf
 
 
 class LayerNormInterface(tf.keras.layers.Layer):
-    """Layer Normalization Interface
+    """Custom Layer Normalization Interface.
 
     Attributes:
         prefix (str): Name of the normalization among 'gLN', 'cLN', and 'eLN'
-        H (int): Number of features
-        beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
-        gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
+        beta (tf.Varaible): Trainable paramter of shape=(, 1, N)
+        gamma (tf.Variable): Trainable parameter of shape=(, 1, N)
         eps (float): Small constant for numerical stability
     """
 
-    def __init__(self, prefix: str, H: int, eps: float = 1e-8, **kwargs):
+    def __init__(self, prefix: str, N: int, eps: float = 1e-8, **kwargs):
         super(LayerNormInterface, self).__init__(**kwargs)
-        self.H = H
         # for any custom trainable parameter,
         # must set its name to save its weight!
         self.gamma = self.add_weight(name=f"{prefix}_gamma",
-                                     shape=(1, self.H),
+                                     shape=(1, N),
                                      initializer="random_normal",
                                      trainable=True)
         self.beta = self.add_weight(name=f"{prefix}_beta",
-                                    shape=(1, self.H),
+                                    shape=(1, N),
                                     initializer="zeros",
                                     trainable=True)
         self.eps = eps
@@ -30,39 +28,39 @@ class LayerNormInterface(tf.keras.layers.Layer):
     def call(self, input: tf.Tensor) -> tf.Tensor:
         """
         Args:
-            inputs (tf.Tensor): Tensor of shape=(, K, H)
+            inputs (tf.Tensor): Tensor of shape=(, K, N)
 
         Returns:
-            outputs (tf.Tensor): Tensor of shape=(, K, H)
+            outputs (tf.Tensor): Tensor of shape=(, K, N)
         """
-        raise NotImplementedError("`call` function must be implemented!")
+        raise NotImplementedError(
+            "`call` function of the layer normalization must be implemented!")
 # LayerNormInterface end
 
 
 class GlobalLayerNorm(LayerNormInterface):
-    """Global Layer Normalization (i.e., gLN)
+    """Global Layer Normalization (i.e., gLN).
 
     Description:
         Layer normalization for `noncausal` system
         Inherited from LayerNormInterface
 
     Attributes:
-        H (int): Number of features
-        beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
-        gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
+        beta (tf.Varaible): Trainable paramter of shape=(, 1, N)
+        gamma (tf.Variable): Trainable parameter of shape=(, 1, N)
         eps (float): Small constant for numerical stability
     """
 
-    def __init__(self, H: int, eps: float = 1e-8, **kwargs):
-        super(GlobalLayerNorm, self).__init__("gLN", H=H, eps=eps, **kwargs)
+    def __init__(self, N: int, eps: float = 1e-8, **kwargs):
+        super(GlobalLayerNorm, self).__init__("gLN", N=N, eps=eps, **kwargs)
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """
         Args:
-            inputs (tf.Tensor): Tensor of shape=(, K, H)
+            inputs (tf.Tensor): Tensor of shape=(, K, N)
 
         Returns:
-            outputs (tf.Tensor): Tensor of shape=(, K, H)
+            outputs (tf.Tensor): Tensor of shape=(, K, N)
         """
         _mean = tf.reduce_mean(inputs,
                                axis=[-2, -1],
@@ -77,29 +75,28 @@ class GlobalLayerNorm(LayerNormInterface):
 
 
 class CausalLayerNorm(LayerNormInterface):
-    """Cumulative Layer Normalization (i.e., cLN)
+    """Cumulative Layer Normalization (i.e., cLN).
 
     Description:
         Layer normalization for `causal` system
         Inherited from LayerNormInterface
 
     Attributes:
-        H (int): Number of features
-        beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
-        gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
+        beta (tf.Varaible): Trainable paramter of shape=(, 1, N)
+        gamma (tf.Variable): Trainable parameter of shape=(, 1, N)
         eps (float): Small constant for numerical stability
     """
 
-    def __init__(self, H: int, eps: float = 1e-8, **kwargs):
-        super(CausalLayerNorm, self).__init__("cLN", H=H, eps=eps, **kwargs)
+    def __init__(self, N: int, eps: float = 1e-8, **kwargs):
+        super(CausalLayerNorm, self).__init__("cLN", N=N, eps=eps, **kwargs)
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """
         Args:
-            inputs (tf.Tensor): Tensor of shape=(, K, H)
+            inputs (tf.Tensor): Tensor of shape=(, K, N)
 
         Returns:
-            outputs (tf.Tensor): Tensor of shape=(, K, H)
+            outputs (tf.Tensor): Tensor of shape=(, K, N)
         """
         _K = inputs.shape[-2]
         _count = tf.reshape(range(1, _K+1), [1, _K, 1])
@@ -121,31 +118,30 @@ class CausalLayerNorm(LayerNormInterface):
 
 
 class ExponentLayerNorm(LayerNormInterface):
-    """Exponential Layer Normalization (i.e., eLN)
+    """Exponential Layer Normalization (i.e., eLN).
 
     Description:
         Layer normalization for `causal` system
         Inherited from LayerNormInterface
 
     Attributes:
-        H (int): Number of features
         alpha (float): Forgetting rate
-        beta (tf.Varaible): Trainable paramter of shape=(, 1, H)
-        gamma (tf.Variable): Trainable parameter of shape=(, 1, H)
+        beta (tf.Varaible): Trainable paramter of shape=(, 1, N)
+        gamma (tf.Variable): Trainable parameter of shape=(, 1, N)
         eps (float): Small constant for numerical stability
         omega (float): Exponent
     """
 
-    def __init__(self, H, alpha: float = 0.5, eps: float = 1e-8, omega: float = 0.5, **kwargs):
-        super(ExponentLayerNorm, self).__init__("eLN", H=H, eps=eps, **kwargs)
+    def __init__(self, N, alpha: float = 0.5, eps: float = 1e-8, omega: float = 0.5, **kwargs):
+        super(ExponentLayerNorm, self).__init__("eLN", N=N, eps=eps, **kwargs)
         self.alpha, self.omega = alpha, omega
 
     def call(self, inputs: tf.Tensor) -> tf.Tensor:
         """
         Args:
-            inputs (tf.Tensor): Tensor of shape=(, K, H)
+            inputs (tf.Tensor): Tensor of shape=(, K, N)
         Returns:
-            outputs (tf.Tensor): Tensor of shape=(, K, H)
+            outputs (tf.Tensor): Tensor of shape=(, K, N)
         """
         return inputs  # TODO | must fix this line
 # ExponentialLayerNorm end

@@ -6,7 +6,7 @@ from .normalizations import CausalLayerNorm as cLN
 
 
 class ConvTasNet(tf.keras.Model):
-    """Conv-TasNet Model
+    """Conv-TasNet Model.
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
@@ -26,8 +26,8 @@ class ConvTasNet(tf.keras.Model):
         super(ConvTasNet, self).__init__(**kwargs)
         self.param = param
         self.encoder = ConvTasNetEncoder(self.param)
-        self.decoder = ConvTasNetDecoder(self.param)
         self.separator = ConvTasNetSeparator(self.param)
+        self.decoder = ConvTasNetDecoder(self.param)
 
     def call(self, mixture_segments: tf.Tensor) -> tf.Tensor:
         """
@@ -51,7 +51,7 @@ class ConvTasNet(tf.keras.Model):
 
 
 class ConvTasNetEncoder(tf.keras.layers.Layer):
-    """Encoding Module using 1-D Convolution
+    """Encoding Module using 1-D Convolution.
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
@@ -96,7 +96,7 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
 
 
 class ConvTasNetDecoder(tf.keras.layers.Layer):
-    """Decoding Module using 1-D Convolution
+    """Decoding Module using 1-D Convolution.
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
@@ -139,11 +139,11 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
 
 
 class ConvTasNetSeparator(tf.keras.layers.Layer):
-    """Separation Module using Dilated Temporal Convolution Network (Dilated-TCN)
+    """Separation Module using Dilated Temporal Convolution Network (Dilated-TCN).
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters
-        normalization (tf.keras.layers.LayerNormalization): Normalization layer
+        normalization (cLN | gLN): Normalization layer
         input_conv1x1 (tf.keras.layers.Conv1D): 1x1 convolution layer
         temporal_conv_net (TemporalConvNet): Dilated-TCN layer
         output_block (SeparatorOutputBlock): Output processing layer after the Dilated-TCN
@@ -152,10 +152,12 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(ConvTasNetSeparator, self).__init__(**kwargs)
         self.param = param
+
         if self.param.causal:  # causal system
-            self.normalization = cLN(H=self.param.N, eps=self.param.eps)
+            self.normalization = cLN(N=self.param.N, eps=self.param.eps)
         else:  # noncausal system
-            self.normalization = gLN(H=self.param.N, eps=self.param.eps)
+            self.normalization = gLN(N=self.param.N, eps=self.param.eps)
+
         self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
                                                     use_bias=False)
@@ -186,7 +188,7 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
 
 
 class SeperatorOutputBlock(tf.keras.layers.Layer):
-    """Output Process after Dilated-TCN in Separtation Module
+    """Output Process after Dilated-TCN in Separtation Module.
 
     Attributes:
         param (ConvTasNetParam): Hyperparameters

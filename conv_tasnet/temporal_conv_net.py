@@ -55,10 +55,10 @@ class Conv1DBlock(tf.keras.layers.Layer):
         is_last (bool): Flag whether target instance is last block in TCN
         bottleneck_conv (tf.keras.layers.Conv1D): 1x1 convolution layer
         prelu1 (tf.keras.layers.PReLU): PReLU activation layer for bottleneck_conv
-        normalization1 (tf.keras.layers.LayerNormalization): Causality depended normalization layer
+        normalization1 (cLN | gLN): Causality depended normalization layer
         depthwise_conv (tf.keras.layers.Conv1D): 1-D depthwise convolution layer
         prelu2 (tf.keras.layers.PReLU): PReLU activation layer for depthwise_conv
-        normalization2 (tf.keras.layers.LayerNormalization): Causality depended normalization layer
+        normalization2 (cLN | gLN): Causality depended normalization layer
         residual_conv (tf.keras.layers.Conv1D): 1x1 convolution layer corresponding to the resodual path
         skipconn_conv (tf.keras.layers.Conv1D): 1x1 convolution layer corresponding to the skipconnection path
     """
@@ -71,17 +71,12 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         if self.param.causal:
             self.causal_label = "causal"
-            self.normalization1 = cLN(H=self.param.H, eps=self.param.eps)
-            self.normalization2 = cLN(H=self.param.H, eps=self.param.eps)
+            self.normalization1 = cLN(N=self.param.H, eps=self.param.eps)
+            self.normalization2 = cLN(N=self.param.H, eps=self.param.eps)
         else:
             self.causal_label = "same"
-            self.normalization1 = gLN(H=self.param.H, eps=self.param.eps)
-            self.normalization2 = gLN(H=self.param.H, eps=self.param.eps)
-
-        # self.normalization1 = tf.keras.layers.LayerNormalization(
-        #     epsilon=self.param.eps)
-        # self.normalization2 = tf.keras.layers.LayerNormalization(
-        #     epsilon=self.param.eps)
+            self.normalization1 = gLN(N=self.param.H, eps=self.param.eps)
+            self.normalization2 = gLN(N=self.param.H, eps=self.param.eps)
 
         self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                       kernel_size=1,
