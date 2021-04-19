@@ -80,23 +80,27 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         self.bottleneck_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                       kernel_size=1,
-                                                      use_bias=False)
+                                                      activation="linear",
+                                                      use_bias=self.param.use_bias)
         self.prelu1 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         self.depthwise_conv = tf.keras.layers.Conv1D(filters=self.param.H,
                                                      kernel_size=self.param.P,
                                                      dilation_rate=self.dilation,
                                                      padding=self.causal_label,
+                                                     activation="linear",
                                                      groups=self.param.H,  # MUST USE THIS OPTION FOR DEPTHWISE
-                                                     use_bias=False)
+                                                     use_bias=self.param.use_bias)
         self.prelu2 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         self.residual_conv = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
-                                                    use_bias=False)
+                                                    activation="linear",
+                                                    use_bias=self.param.use_bias)
         self.skipconn_conv = tf.keras.layers.Conv1D(filters=self.param.S,
                                                     kernel_size=1,
-                                                    use_bias=False)
+                                                    activation="linear",
+                                                    use_bias=self.param.use_bias)
 
     def call(self, block_inputs: tf.Tensor) -> tf.Tensor:
         """
@@ -120,10 +124,9 @@ class Conv1DBlock(tf.keras.layers.Layer):
         # (, K, H) -> (, K, H)
         depthwise_outputs = self.normalization2(depthwise_outputs)
 
-        # avoid gradient missing
         # (, K, H) -> (, K, B)
         residual_outputs = block_inputs
-        if not self.is_last:
+        if not self.is_last:  # avoid gradient missing
             residual_outputs += self.residual_conv(depthwise_outputs)
         # (, K, H) -> (, K, S)
         skipconn_outputs = self.skipconn_conv(depthwise_outputs)

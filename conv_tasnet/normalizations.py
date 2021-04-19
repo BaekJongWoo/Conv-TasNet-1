@@ -17,11 +17,11 @@ class LayerNormInterface(tf.keras.layers.Layer):
         # must set its name to save its weight!
         self.gamma = self.add_weight(name=f"{prefix}_gamma",
                                      shape=(1, N),
-                                     initializer="random_normal",
+                                     initializer="glorot_uniform",
                                      trainable=True)
         self.beta = self.add_weight(name=f"{prefix}_beta",
                                     shape=(1, N),
-                                    initializer="zeros",
+                                    initializer="glorot_uniform",
                                     trainable=True)
         self.eps = eps
 
@@ -100,7 +100,7 @@ class CausalLayerNorm(LayerNormInterface):
         """
         _K = inputs.shape[-2]
         _count = tf.reshape(range(1, _K+1), [1, _K, 1])
-        _count = tf.cast(_count, dtype=tf.float32)
+        _count = tf.cast(_count, tf.float32)
 
         _H_mean = tf.reduce_mean(inputs, axis=-1, keepdims=True)
         _H_pow_mean = tf.reduce_mean(tf.pow(inputs, 2), axis=-1, keepdims=True)

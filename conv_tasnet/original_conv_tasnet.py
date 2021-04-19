@@ -56,8 +56,8 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
     Attributes:
         param (ConvTasNetParam): Hyperparameters
         conv1d_U (tf.keras.layers.Conv1D): 1-D convolution layer for tne encoding
-        conv1d_G (tf.keras.layers.Conv1D): 1-D convolution layer for the gating machanism
-        multiply (tf.keras.layers.Multiply): Elementwise multiplication layer
+        conv1d_G (tf.keras.layers.Conv1D; optional): 1-D convolution layer for the gating machanism
+        multiply (tf.keras.layers.Multiply; optional): Elementwise multiplication layer
     """
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
@@ -65,13 +65,13 @@ class ConvTasNetEncoder(tf.keras.layers.Layer):
         self.param = param
         self.conv1d_U = tf.keras.layers.Conv1D(filters=self.param.N,
                                                kernel_size=1,
-                                               activation=self.param.w_activation,
-                                               use_bias=False)
+                                               activation="linear",
+                                               use_bias=self.param.use_bias)
         if self.param.gating:
             self.conv1d_G = tf.keras.layers.Conv1D(filters=self.param.N,
                                                    kernel_size=1,
                                                    activation="sigmoid",
-                                                   use_bias=False)
+                                                   use_bias=self.param.use_bias)
             self.multiply = tf.keras.layers.Multiply()
 
     def call(self, mixture_segments: tf.Tensor) -> tf.Tensor:
@@ -112,7 +112,8 @@ class ConvTasNetDecoder(tf.keras.layers.Layer):
         self.multiply = tf.keras.layers.Multiply()
         self.conv1_V = tf.keras.layers.Conv1D(filters=self.param.L,
                                               kernel_size=1,
-                                              use_bias=False)
+                                              activation="linear",
+                                              use_bias=self.param.use_bias)
         self.permute = tf.keras.layers.Permute((2, 1, 3))
 
     def call(self, mixture_weights: tf.Tensor, estimated_masks: tf.Tensor) -> tf.Tensor:
@@ -161,7 +162,8 @@ class ConvTasNetSeparator(tf.keras.layers.Layer):
 
         self.input_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.B,
                                                     kernel_size=1,
-                                                    use_bias=False)
+                                                    activation="linear",
+                                                    use_bias=self.param.use_bias)
         self.temporal_conv_net = TemporalConvNet(self.param)
         self.output_block = SeperatorOutputBlock(self.param)
 
@@ -195,8 +197,7 @@ class SeperatorOutputBlock(tf.keras.layers.Layer):
         param (ConvTasNetParam): Hyperparameters
         prelu (tf.keras.layer.PReLU): PReLU activation layer with a single parameter
         output_conv1x1 (tf.keras.layers.Conv1D): 1x1 convolution layer
-        output_reshape (tf.keras.layers.Reshape): (, K, C*N) -> (, K, C, N)
-        activation (sigmoid | relu | softmax | linear): Activation corresponding to self.param.m_activation       
+        output_reshape (tf.keras.layers.Reshape): (, K, C*N) -> (, K, C, N)    
     """
 
     def __init__(self, param: ConvTasNetParam, **kwargs):
@@ -205,18 +206,11 @@ class SeperatorOutputBlock(tf.keras.layers.Layer):
         self.prelu = tf.keras.layers.PReLU(shared_axes=[1, 2])
         self.output_conv1x1 = tf.keras.layers.Conv1D(filters=self.param.C * self.param.N,
                                                      kernel_size=1,
-                                                     use_bias=False)
+                                                     activation="sigmoid",
+                                                     use_bias=self.param.use_bias)
         self.output_reshape = tf.keras.layers.Reshape(target_shape=(self.param.K,
                                                                     self.param.C,
                                                                     self.param.N))
-        if self.param.m_activation == "softmax":
-            self.activation = tf.keras.layers.Softmax(axis=-2)
-        elif self.param.m_activation == "sigmoid":
-            self.activation = tf.keras.activations.sigmoid
-        elif self.param.m_activation == "relu":
-            self.activation = tf.keras.activations.relu
-        else:  # default
-            self.activation = tf.keras.activations.linear
 
     def call(self, block_inputs: tf.Tensor) -> tf.Tensor:
         """
@@ -232,8 +226,6 @@ class SeperatorOutputBlock(tf.keras.layers.Layer):
         block_outputs = self.output_conv1x1(block_outputs)
         # (, K, C*N) -> (, K, C, N)
         block_outputs = self.output_reshape(block_outputs)
-        # (, K, C, N) -> (, K, C, N)
-        block_outputs = self.activation(block_outputs)
         return block_outputs
 
     def get_config(self) -> dict:
