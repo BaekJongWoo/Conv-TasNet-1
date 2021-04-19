@@ -16,6 +16,8 @@ class ConvTasNetParam():
         gating (bool): Option for gating mechanism
         use_bias (bool): Option for 1-D convolution bias
         eps (float): Small constant for numerical stability  
+
+        overlap (int): Number of samples in which each adjacent pair of fragments overlap (paxbun)
     """
 
     def __init__(self,
@@ -32,7 +34,13 @@ class ConvTasNetParam():
                  causal: bool = True,
                  gating: bool = False,
                  use_bias: bool = False,
-                 eps: float = 1e-8):
+                 eps: float = 1e-8,
+                 overlap: int = 8):
+
+        # paxbun
+        if(L < overlap):
+            raise ValueError("overlap cannot be bigger than L!")
+
         self.K = K
         self.C = C
         self.L = L
@@ -66,4 +74,38 @@ class ConvTasNetParam():
 
     def __str__(self) -> str:
         return str(self.get_config())
+
+    # paxbun
+    def save(self, path: str):
+        with open(path, "w", encoding="utf8") as f:
+            f.write('\n'.join(f"{key}={value}" for key,
+                              value in self.get_config().items()))
+
+    # paxbun
+    @staticmethod
+    def load(path: str):
+        def convert_num(value):
+            for t in [int, float]:
+                try:
+                    return t(value)
+                except:
+                    pass
+            return value
+
+        def conver_bool(value):
+            if value == "true":
+                return True
+            else:
+                return False
+
+        def convert_tup(tup):
+            if tup[1] in ["casual", "gating"]:
+                return (tup[0], conver_bool(tup[1]))
+            else:
+                return (tup[0], convert_num(tup[1]))
+
+        with open(path, "r", encoding="utf8") as f:
+            d = dict(convert_tup(line.strip().split('='))
+                     for line in f.readlines())
+            return ConvTasNetParam(**d)
 # ConvTasNetParam end
