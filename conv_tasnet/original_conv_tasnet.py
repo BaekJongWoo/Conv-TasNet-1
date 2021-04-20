@@ -3,6 +3,7 @@ from .conv_tasnet_param import ConvTasNetParam
 from .temporal_conv_net import TemporalConvNet
 from .normalizations import GlobalLayerNorm as gLN
 from .normalizations import CausalLayerNorm as cLN
+from .losses import SDR
 
 
 class ConvTasNet(tf.keras.Model):
@@ -16,7 +17,9 @@ class ConvTasNet(tf.keras.Model):
     """
 
     @staticmethod
-    def make(param: ConvTasNetParam, optimizer: tf.keras.optimizers.Optimizer, loss: tf.keras.losses.Loss):
+    def make(param: ConvTasNetParam,
+             optimizer: tf.keras.optimizers.Optimizer = "adam",
+             loss: tf.keras.losses.Loss = SDR()):
         model = ConvTasNet(param)
         model.compile(optimizer=optimizer, loss=loss)
         model.build(input_shape=(None, param.K, param.L))

@@ -20,6 +20,9 @@ class ConvTasNetParam():
         overlap (int): Number of samples in which each adjacent pair of fragments overlap (paxbun)
     """
 
+    __slots__ = ("K", "C", "L", "N", "B", "S", "H", "P", "X", "R",
+                 "causal", "gating", "use_bias", "eps", "overlap")
+
     def __init__(self,
                  K: int = 128,
                  C: int = 4,
@@ -55,6 +58,7 @@ class ConvTasNetParam():
         self.gating = gating
         self.use_bias = use_bias
         self.eps = eps
+        self.overlap = overlap
 
     def get_config(self) -> dict:
         return {"K": self.K,
@@ -70,7 +74,8 @@ class ConvTasNetParam():
                 "causal": self.causal,
                 "gating": self.gating,
                 "use_bias": self.use_bias,
-                "eps": self.eps}
+                "eps": self.eps,
+                "overlap": self.overlap}
 
     def __str__(self) -> str:
         return str(self.get_config())
@@ -93,7 +98,7 @@ class ConvTasNetParam():
             return value
 
         def conver_bool(value):
-            if value == "true":
+            if value == "True":
                 return True
             else:
                 return False

@@ -36,13 +36,20 @@ flags.DEFINE_integer("THat", 128, "Total number of segments in the input")
 flags.DEFINE_integer(
     "overlap", 8, "Number of samples in which each adjacent pair of fragments overlap")
 
+flags.DEFINE_bool("casual", True, "Flag for the system's casuality")
+flags.DEFINE_bool(
+    "gating", False, "Flag for the gating mechanism of the encoder")
+flags.DEFINE_bool(
+    "bias", False, "Flag for the 'use_bias' option of the Conv1D")
+
 
 def get_model_param() -> ConvTasNetParam:
     return ConvTasNetParam(
         N=FLAGS.N, L=FLAGS.L, B=FLAGS.B, H=FLAGS.H, S=FLAGS.Sc,  # Sc=FLAGS.Sc
         P=FLAGS.P, X=FLAGS.X, R=FLAGS.R, K=FLAGS.THat,  # Ha=FLAGS.Ha, That=FLAGS.THat
         C=len(Provider.STEMS),
-        overlap=FLAGS.overlap
+        overlap=FLAGS.overlap,
+        causal=FLAGS.causal, gating=FLAGS.gating, use_bias=FLAGS.bias
     )
 
 
