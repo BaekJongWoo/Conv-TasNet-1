@@ -17,7 +17,7 @@ class Encoder(tf.keras.layers.Layer):
 
     def call(self, mixture_segments):
         # (, That, L) -> (, That, N)
-        return self.U(mixture_segments)
+        return self.U(mixture_segments)  # mixture_weights
 
 
 class Decoder(tf.keras.layers.Layer):
@@ -32,7 +32,7 @@ class Decoder(tf.keras.layers.Layer):
 
     def call(self, source_weights):
         # (, C, That, N) -> (, C, That, L)
-        return self.B(source_weights)
+        return self.B(source_weights)  # estimated_sources
 
 
 class Separater(tf.keras.layers.Layer):
@@ -85,7 +85,8 @@ class Separater(tf.keras.layers.Layer):
         source_masks = self.conv1x1_out(tcn_outputs)
 
         # (, That, C*N) -> (, C, That, N)
-        return self.reorder_mask(self.reshape_mask(source_masks))
+        source_masks = self.reorder_mask(self.reshape_mask(source_masks))
+        return source_masks
 
 
 class Conv1DBlock(tf.keras.layers.Layer):
@@ -94,7 +95,9 @@ class Conv1DBlock(tf.keras.layers.Layer):
         super(Conv1DBlock, self).__init__(
             name=f'conv1d_block_r{r}_x{x}', **kwargs)
 
-        self.conv1x1_bottle = tf.keras.layers.Conv1D(param.H)
+        self.conv1x1_bottle = tf.keras.layers.Conv1D(filters=param.H,
+                                                     kernel_size=1,
+                                                     use_bias=False)
         self.prelu1 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         padding_label: str = None
@@ -107,12 +110,12 @@ class Conv1DBlock(tf.keras.layers.Layer):
             self.normalization1 = gLN(param.H)
             self.normalization2 = gLN(param.H)
 
-        self.conv1d_D = tf.keras.layers.Conv1D(filters=param.H,
-                                               kernel_size=1,
-                                               dilation_rate=2**x,
-                                               padding=padding_label,
-                                               groups=param.H,
-                                               use_bias=False)
+        self.dconv = tf.keras.layers.Conv1D(filters=param.H,
+                                            kernel_size=param.P,
+                                            dilation_rate=2**x,
+                                            padding=padding_label,
+                                            groups=param.H,
+                                            use_bias=False)
 
         self.prelu2 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
@@ -136,16 +139,17 @@ class Conv1DBlock(tf.keras.layers.Layer):
         block_outputs = self.normalization1(block_outputs)
 
         # (, That, H) -> (, That, H)
-        block_outputs = self.conv1d_D(block_outputs)
+        block_outputs = self.dconv(block_outputs)
 
         # (, That, H) -> (, That, H)
         block_outputs = self.prelu2(block_outputs)
         # (, That, H) -> (, That, H)
         block_outputs = self.normalization2(block_outputs)
 
-        # (, That, H) -> (, That, B)
-        residual_outputs = self.conv1x1_residual(block_outputs)
         # (, That, H) -> (, That, Sc)
         skipconn_outputs = self.conv1x1_skipconn(block_outputs)
+        # (, That, H) -> (, That, B)
+        residual_outputs = self.conv1x1_residual(block_outputs)
+        residual_outputs = self.link_residual([block_inputs, residual_outputs])
 
-        return skipconn_outputs, self.link_residual([block_outputs, residual_outputs])
+        return skipconn_outputs, residual_outputs
