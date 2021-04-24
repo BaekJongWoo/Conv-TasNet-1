@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import tensorflow as tf
 
 
@@ -19,8 +21,8 @@ class GlobalLayerNorm(tf.keras.layers.Layer):
                                  trainable=True,)
 
     def call(self, inputs):
-        m = tf.math.reduce_mean(inputs, axis=[-2, -1], keepdims=True)
-        v = tf.math.reduce_variance(inputs, axis=[-2, -1], keepdims=True)
+        m = tf.math.reduce_mean(inputs, axis=[1, 2], keepdims=True)
+        v = tf.math.reduce_variance(inputs, axis=[1, 2], keepdims=True)
         return ((inputs - m) / tf.math.sqrt(v + self.eps)) * self.g + self.b
 
 
