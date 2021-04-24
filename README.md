@@ -1,4 +1,4 @@
-# **TaSNet: Time-domain Audio Separation Network**
+# **Conv-TasNet: Surpassing Ideal Time–Frequency Magnitude Masking for Speech Separation**
 
 Tensorflow 2.x (with Keras API) Implementation of the Conv-TasNet (Luo et al., 2019)
 
