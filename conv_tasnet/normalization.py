@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import tensorflow as tf
 
 
 class GlobalLayerNorm(tf.keras.layers.Layer):
 
-    def __init__(self, H, **kwargs):
+    def __init__(self, **kwargs):
         super(GlobalLayerNorm, self).__init__(name='gLN', **kwargs)
         self.eps = tf.keras.backend.epsilon()
 
@@ -28,7 +26,7 @@ class GlobalLayerNorm(tf.keras.layers.Layer):
 
 class CausalLayerNorm(tf.keras.layers.Layer):
 
-    def __init__(self, H, **kwargs):
+    def __init__(self, **kwargs):
         super(CausalLayerNorm, self).__init__(name='cLN', **kwargs)
         self.eps = tf.keras.backend.epsilon()
 

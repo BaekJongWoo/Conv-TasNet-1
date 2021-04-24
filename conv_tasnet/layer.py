@@ -103,12 +103,12 @@ class Conv1DBlock(tf.keras.layers.Layer):
         padding_label: str = None
         if param.causal:
             padding_label = 'causal'
-            self.normalization1 = cLN(param.H)
-            self.normalization2 = cLN(param.H)
+            self.normalization1 = cLN()
+            self.normalization2 = cLN()
         else:
             padding_label = 'same'
-            self.normalization1 = gLN(param.H)
-            self.normalization2 = gLN(param.H)
+            self.normalization1 = gLN()
+            self.normalization2 = gLN()
 
         self.dconv = tf.keras.layers.Conv1D(filters=param.H,
                                             kernel_size=param.P,
