@@ -30,7 +30,7 @@ MIT License
 
 # **References**
 
-1. TaSNet: Time-Domain Audio Separation Network for Real-Time, Single-Channel Speech Separation ([IEEE][conv_tasnet_paper_link])
+1. Conv-TasNet: Surpassing Ideal Time–Frequency Magnitude Masking for Speech Separation ([IEEE][conv_tasnet_paper_link])
 2. Tensorflow implementation by paxbun ([GitHub][paxbun_github_link])
 
 [conv_tasnet_paper_link]: https://ieeexplore.ieee.org/document/8707065
