@@ -12,8 +12,7 @@ class Encoder(tf.keras.layers.Layer):
 
         self.U = tf.keras.layers.Conv1D(filters=param.N,
                                         kernel_size=1,
-                                        activation='linear',
-                                        use_bias=False)
+                                        activation='linear')
 
     def call(self, mixture_segments):
         # (, That, L) -> (, That, N)
@@ -26,9 +25,7 @@ class Decoder(tf.keras.layers.Layer):
         super(Decoder, self).__init__(name='Decoder', **kwargs)
 
         self.B = tf.keras.layers.Conv1D(filters=param.L,
-                                        kernel_size=1,
-                                        activation='sigmoid',
-                                        use_bias=False)
+                                        kernel_size=1)
 
     def call(self, source_weights):
         # (, C, That, N) -> (, C, That, L)
@@ -43,22 +40,21 @@ class Separater(tf.keras.layers.Layer):
         self.normalization = tf.keras.layers.LayerNormalization()
 
         self.conv1x1_in = tf.keras.layers.Conv1D(filters=param.B,
-                                                 kernel_size=1,
-                                                 use_bias=False)
+                                                 kernel_size=1)
 
         # Dilated-TCN
         self.conv1d_blocks = []
         for r in range(param.R):
             for x in range(param.X):
                 self.conv1d_blocks.append(Conv1DBlock(param, r, x))
+        self.conv1d_blocks[-1].is_last = True
         self.skip_connection = tf.keras.layers.Add()
 
         self.prelu = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         self.conv1x1_out = tf.keras.layers.Conv1D(filters=param.C*param.N,
                                                   kernel_size=1,
-                                                  acivation='sigmoid',
-                                                  use_bias=False)
+                                                  activation='sigmoid')
 
         self.reshape_mask = tf.keras.layers.Reshape(
             target_shape=[param.That, param.C, param.N])
@@ -95,9 +91,11 @@ class Conv1DBlock(tf.keras.layers.Layer):
         super(Conv1DBlock, self).__init__(
             name=f'conv1d_block_r{r}_x{x}', **kwargs)
 
+        self.is_last = False
+        self.B = param.B
+
         self.conv1x1_bottle = tf.keras.layers.Conv1D(filters=param.H,
-                                                     kernel_size=1,
-                                                     use_bias=False)
+                                                     kernel_size=1)
         self.prelu1 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         padding_label: str = None
@@ -114,20 +112,18 @@ class Conv1DBlock(tf.keras.layers.Layer):
                                             kernel_size=param.P,
                                             dilation_rate=2**x,
                                             padding=padding_label,
-                                            groups=param.H,
-                                            use_bias=False)
+                                            groups=param.H)
 
         self.prelu2 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         self.conv1x1_skipconn = tf.keras.layers.Conv1D(filters=param.Sc,
-                                                       kernel_size=1,
-                                                       use_bias=False)
+                                                       kernel_size=1)
 
-        self.conv1x1_residual = tf.keras.layers.Conv1D(filters=param.B,
-                                                       kernel_size=1,
-                                                       use_bias=False)
-
-        self.link_residual = tf.keras.layers.Add()
+    def build(self, input_shape):
+        if not self.is_last:
+            self.conv1x1_residual = tf.keras.layers.Conv1D(filters=self.B,
+                                                           kernel_size=1)
+            self.link_residual = tf.keras.layers.Add()
 
     def call(self, block_inputs):
         # (, That, B) -> (, That, H)
@@ -148,8 +144,12 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         # (, That, H) -> (, That, Sc)
         skipconn_outputs = self.conv1x1_skipconn(block_outputs)
-        # (, That, H) -> (, That, B)
-        residual_outputs = self.conv1x1_residual(block_outputs)
-        residual_outputs = self.link_residual([block_inputs, residual_outputs])
+
+        residual_outputs = block_inputs
+        if not self.is_last:
+            # (, That, H) -> (, That, B)
+            block_outputs = self.conv1x1_residual(block_outputs)
+            residual_outputs = self.link_residual(
+                [block_inputs, block_outputs])
 
         return skipconn_outputs, residual_outputs

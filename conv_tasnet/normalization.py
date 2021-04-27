@@ -5,7 +5,7 @@ class GlobalLayerNorm(tf.keras.layers.Layer):
 
     def __init__(self, **kwargs):
         super(GlobalLayerNorm, self).__init__(name='gLN', **kwargs)
-        self.eps = tf.keras.backend.epsilon()
+        self.eps = 1e-7
 
     def build(self, input_shape):
         self.g = self.add_weight(name='gLN_gamma',
@@ -28,7 +28,7 @@ class CausalLayerNorm(tf.keras.layers.Layer):
 
     def __init__(self, **kwargs):
         super(CausalLayerNorm, self).__init__(name='cLN', **kwargs)
-        self.eps = tf.keras.backend.epsilon()
+        self.eps = 1e-7
 
     def build(self, input_shape):
         self.K = input_shape[-2]

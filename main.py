@@ -36,7 +36,7 @@ flags.DEFINE_integer("THat", 128, "Total number of segments in the input")
 flags.DEFINE_integer(
     "overlap", 8, "Number of samples in which each adjacent pair of fragments overlap")
 
-flags.DEFINE_bool("casual", False, "Flag for the system's casuality")
+flags.DEFINE_bool("causal", False, "Flag for the system's casuality")
 # flags.DEFINE_bool(
 #     "gating", False, "Flag for the gating mechanism of the encoder")
 # flags.DEFINE_bool(
