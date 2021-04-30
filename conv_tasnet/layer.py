@@ -22,7 +22,7 @@ class Decoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(Decoder, self).__init__(name='Decoder', **kwargs)
 
-        self.B = tf.keras.layers.Desne(units=param.L)
+        self.B = tf.keras.layers.Dense(units=param.L)
 
     def call(self, source_weights):
         # (, C, That, N) -> (, C, That, L)

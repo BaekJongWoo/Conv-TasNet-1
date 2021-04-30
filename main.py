@@ -13,6 +13,7 @@ from dataset import DatasetParam, Dataset
 FLAGS = flags.FLAGS
 flags.DEFINE_string("checkpoint", None,
                     "Directory to save weights", required=True)
+
 flags.DEFINE_string("dataset_path", f"{Path.home()}/musdb18", "Dataset Path")
 flags.DEFINE_integer("epochs", None, "Number of epochs to repeat")
 flags.DEFINE_integer(

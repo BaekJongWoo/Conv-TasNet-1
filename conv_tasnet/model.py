@@ -38,7 +38,7 @@ class ConvTasNet(tf.keras.Model):
 
     @staticmethod
     def make(param: ConvTasNetParam,
-             optimizer: tf.keras.optimizers.Optimizer = 'adam',
+             optimizer: tf.keras.optimizers.Optimizer = tf.keras.optimizers.Adam(clipnorm=5),
              loss: tf.keras.losses.Loss = SDR()):
         conv_tasnet = ConvTasNet(param)
         conv_tasnet.compile(optimizer=optimizer, loss=loss)
