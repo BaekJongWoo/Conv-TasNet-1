@@ -10,9 +10,7 @@ class Encoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(Encoder, self).__init__(name='Encoder', **kwargs)
 
-        self.U = tf.keras.layers.Conv1D(filters=param.N,
-                                        kernel_size=1,
-                                        activation='linear')
+        self.U = tf.keras.layers.Dense(units=param.N)
 
     def call(self, mixture_segments):
         # (, That, L) -> (, That, N)
@@ -24,8 +22,7 @@ class Decoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(Decoder, self).__init__(name='Decoder', **kwargs)
 
-        self.B = tf.keras.layers.Conv1D(filters=param.L,
-                                        kernel_size=1)
+        self.B = tf.keras.layers.Desne(units=param.L)
 
     def call(self, source_weights):
         # (, C, That, N) -> (, C, That, L)
@@ -39,8 +36,7 @@ class Separater(tf.keras.layers.Layer):
 
         self.normalization = tf.keras.layers.LayerNormalization()
 
-        self.conv1x1_in = tf.keras.layers.Conv1D(filters=param.B,
-                                                 kernel_size=1)
+        self.conv1x1_in = tf.keras.layers.Dense(units=param.B)
 
         # Dilated-TCN
         self.conv1d_blocks = []
@@ -52,9 +48,8 @@ class Separater(tf.keras.layers.Layer):
 
         self.prelu = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
-        self.conv1x1_out = tf.keras.layers.Conv1D(filters=param.C*param.N,
-                                                  kernel_size=1,
-                                                  activation='sigmoid')
+        self.conv1x1_out = tf.keras.layers.Dense(units=param.C*param.N,
+                                                 activation='sigmoid')
 
         self.reshape_mask = tf.keras.layers.Reshape(
             target_shape=[param.That, param.C, param.N])
@@ -94,8 +89,7 @@ class Conv1DBlock(tf.keras.layers.Layer):
         self.is_last = False
         self.B = param.B
 
-        self.conv1x1_bottle = tf.keras.layers.Conv1D(filters=param.H,
-                                                     kernel_size=1)
+        self.conv1x1_bottle = tf.keras.layers.Dense(units=param.H)
         self.prelu1 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
         padding_label: str = None
@@ -116,13 +110,11 @@ class Conv1DBlock(tf.keras.layers.Layer):
 
         self.prelu2 = tf.keras.layers.PReLU(shared_axes=[1, 2])
 
-        self.conv1x1_skipconn = tf.keras.layers.Conv1D(filters=param.Sc,
-                                                       kernel_size=1)
+        self.conv1x1_skipconn = tf.keras.layers.Dense(units=param.Sc)
 
     def build(self, input_shape):
         if not self.is_last:
-            self.conv1x1_residual = tf.keras.layers.Conv1D(filters=self.B,
-                                                           kernel_size=1)
+            self.conv1x1_residual = tf.keras.layers.Dense(units=self.B)
             self.link_residual = tf.keras.layers.Add()
 
     def call(self, block_inputs):
