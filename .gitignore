@@ -10,6 +10,7 @@ train*/
 train_log*
 
 # predict
+predict*/
 *.wav
 *.zip
 

@@ -35,12 +35,12 @@ class CausalLayerNorm(tf.keras.layers.Layer):
         self.g = self.add_weight(name='cLN_gamma',
                                  shape=(int(input_shape[-1]), ),
                                  initializer='glorot_uniform',
-                                 trainable=False)
+                                 trainable=True)
 
         self.b = self.add_weight(name='cLN_beta',
                                  shape=(int(input_shape[-1]), ),
                                  initializer='glorot_uniform',
-                                 trainable=False)
+                                 trainable=True)
 
     def call(self, inputs):
         # k_count: number of frames that have to be taken in k-th frame of the inputs
