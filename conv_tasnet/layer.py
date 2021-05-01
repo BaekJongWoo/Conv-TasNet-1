@@ -10,7 +10,7 @@ class Encoder(tf.keras.layers.Layer):
     def __init__(self, param: ConvTasNetParam, **kwargs):
         super(Encoder, self).__init__(name='Encoder', **kwargs)
 
-        self.U = tf.keras.layers.Dense(units=param.N)
+        self.U = tf.keras.layers.Dense(units=param.N, activation='relu')
 
     def call(self, mixture_segments):
         # (, That, L) -> (, That, N)
