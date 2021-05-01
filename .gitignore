@@ -11,6 +11,8 @@ train_log*
 
 # predict
 *.wav
+*.zip
+
 # Local History for Visual Studio Code
 .history/
 

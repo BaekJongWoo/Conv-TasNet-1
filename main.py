@@ -32,22 +32,17 @@ flags.DEFINE_integer(
 flags.DEFINE_integer("P", 3, "Kernel size in convolultional blocks")
 flags.DEFINE_integer("X", 8, "Number of convolutional blocks in each repeat")
 flags.DEFINE_integer("R", 3, "Number of repeats")
-# flags.DEFINE_string("Ha", "linear", "Activation function used in the encoder")
 flags.DEFINE_integer("THat", 128, "Total number of segments in the input")
 flags.DEFINE_integer(
     "overlap", 8, "Number of samples in which each adjacent pair of fragments overlap")
 
 flags.DEFINE_bool("causal", False, "Flag for the system's casuality")
-# flags.DEFINE_bool(
-#     "gating", False, "Flag for the gating mechanism of the encoder")
-# flags.DEFINE_bool(
-#     "bias", False, "Flag for the 'use_bias' option of the Conv1D")
 
 
 def get_model_param() -> ConvTasNetParam:
     return ConvTasNetParam(
         N=FLAGS.N, L=FLAGS.L, B=FLAGS.B, H=FLAGS.H, Sc=FLAGS.Sc,
-        P=FLAGS.P, X=FLAGS.X, R=FLAGS.R, That=FLAGS.THat,  # Ha=FLAGS.Ha,
+        P=FLAGS.P, X=FLAGS.X, R=FLAGS.R, That=FLAGS.THat,  
         C=len(Dataset.STEMS),
         overlap=FLAGS.overlap,
         causal=FLAGS.causal
